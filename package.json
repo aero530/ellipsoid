@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@psychobolt/react-paperjs": "0.0.42",
+    "lodash.clonedeep": "^4.5.0",
     "paper": "^0.11.5",
     "rc-slider": "^8.6.1",
     "react": "^16.2.0",
@@ -11,7 +12,8 @@
     "react-redux": "^5.0.7",
     "react-scripts": "1.1.1",
     "redux": "^3.7.2",
-    "redux-form": "^7.3.0"
+    "redux-form": "^7.3.0",
+    "vis": "^4.21.0"
   },
   "scripts": {
     "start": "react-scripts start",

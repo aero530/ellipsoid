@@ -1,9 +1,10 @@
-import React from 'react'
-import EllipsoidInput from '../containers/ellipsoidInput'
+import React from 'react';
+import EllipsoidInput from '../containers/ellipsoidInput';
 
 class InputForm extends React.Component {
   submit = values => {
     // print the form values to the console
+    console.log("submit");
     console.log(values)
   }
   render() {

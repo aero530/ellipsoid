@@ -14,9 +14,10 @@ class App extends Component {
     return (
       <div className="App container">
       <InputForm />
+      <Scene />
       <Counter />
       <Color />
-      <Scene />
+      
       </div>
     );
   }
