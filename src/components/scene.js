@@ -20,46 +20,15 @@ class Scene extends Component {
 
     handleDownload() {
         const scope = window.paper;
-        // export bounds : content to export full size image (not scaled down view)
-        const url = "data:image/svg+xml;utf8," + encodeURIComponent(scope.project.exportSVG({bounds:"content", asString:true}));
+        // use export bounds:"content" to export full size image (not scaled down view)
+        let svgString = scope.project.exportSVG({bounds:"content", asString:true});
+        // add inkscape layer modifier to all groups that have an id defined right after the start of the group element
+        svgString = svgString.replace(/<g id="([a-zA-Z0-9\t\n ./<>?;:"'`!@#$%^&*()[\]{}_+=|\\-~,]*)"/g, (match, p1) => {
+            return "<g inkscape:groupmode=\"layer\" id=\""+p1+"\"";
+        });
+
+        const url = "data:image/svg+xml;utf8," + encodeURIComponent(svgString);
         
-        //replace %3Cg with %3Cg%20inkscape%3Agroupmode%20%3D%20%22layer%22
-
-        // THIS CURRENTLY ISNT WORKING
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        url.replace("<g", '<g inkscape:groupmode="layer"');
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-
         const link = document.createElement("a");
 
         let units = "";
@@ -81,16 +50,8 @@ class Scene extends Component {
         link.href = url;
         link.click();
     }
-    
-    render() {
-        return (
-            <div>
-            <canvas id="paper" width={600} height={600} />
-            <button onClick={this.handleDownload}>Download</button>
-            </div>
-        )
-    }
-    componentDidUpdate() {
+
+    handleDrawPattern() {
         let scope = window.paper;
 
         if (scope.projects.length === 0) {  // if there is not a project define (first time this is loaded)
@@ -102,13 +63,15 @@ class Scene extends Component {
         var patternLayer = scope.project.activeLayer;
         patternLayer.name = 'Ellipsoid Pattern';
 
-        const ellipsoid = computePattern(this.props.inputstate);
+        const ellipsoid = computePattern(this.props.geometrySettings, this.props.projectionSettings);
 
-        drawPattern(this.props.inputstate, ellipsoid, scope);
+        drawPattern(this.props.geometrySettings,this.props.projectionSettings, ellipsoid, scope);
+
         this.handleUpdateEllipsoid(ellipsoid);
         
-        let imgWidth = scope.project.activeLayer.bounds.width
-        let imgHeight = scope.project.activeLayer.bounds.height;
+        // Get the size of the 'Bounding Box' layer and use it to set the size of the image
+        let imgWidth = scope.project.layers['Bounding Box'].bounds.width;
+        let imgHeight = scope.project.layers['Bounding Box'].bounds.height;
 
         let viewWidth = scope.view.viewSize.width
         let viewHeight = scope.view.viewSize.height;
@@ -119,8 +82,6 @@ class Scene extends Component {
         scope.view.zoom = zoom;
        // scope.view.viewSize = new scope.Size(imgWidth*zoom,imgHeight*zoom);
         scope.view.center = scope.project.activeLayer.bounds.center;
-
-        console.log(scope);
 
         // var firstLayer = new scope.Layer();
         // firstLayer.name = 'Layer ABC';
@@ -148,7 +109,23 @@ class Scene extends Component {
         // var ellipse = new scope.Shape.Ellipse(new scope.Point(20,100), new scope.Size(100, 20));
         // ellipse.fillColor = new scope.Color(this.props.color[0]/255, this.props.color[1]/255, this.props.color[2]/255);
 
+    }
+    
+    render() {
+        return (
+            <div>
+            <canvas id="paper" width={600} height={600} />
+            <button onClick={this.handleDownload}>Download</button>
+            </div>
+        )
+    }
 
+    componentDidUpdate() {
+        this.handleDrawPattern();
+    }
+
+    componentDidMount() {
+        this.handleDrawPattern();
     }
 }
 
@@ -156,16 +133,14 @@ class Scene extends Component {
 function mapStateToProps(state) {
     return {
       //color: state.color,
-      inputstate: state.form.EllipsoidInput.values,
+      geometrySettings: state.form.EllipsoidInput.values,
+      projectionSettings: state.form.ProjectionInput.values,
       a: state.form.EllipsoidInput.values.a.toFixed(2).toString(),
       b: state.form.EllipsoidInput.values.b.toFixed(2).toString(),
       c: state.form.EllipsoidInput.values.c.toFixed(2).toString(),
       ppu: state.form.EllipsoidInput.values.ppu
     }
   }
-
-
-
 
 //connects redux actions to props
 function mapDispatchToProps(dispatch) {
@@ -174,6 +149,4 @@ function mapDispatchToProps(dispatch) {
     }, dispatch);
   }
 
-//   export default connect(mapStateToProps, mapDispatchToProps)(Scene);
-//export default connect(mapStateToProps, null)(Scene);
 export default connect(mapStateToProps, mapDispatchToProps)(Scene);

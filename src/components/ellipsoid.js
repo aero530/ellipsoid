@@ -76,101 +76,30 @@ function panelExtents(array) {
   return [arrayMin, arrayMax];
 }
 
-// -----------------------------------------------------------------------------
-// Drawing functions
-// -----------------------------------------------------------------------------
-
-// function drawVisualization(panels, elementid) {
-//   // Function to generate 3D plot of panels
-
-//   // create the data table.
-//   data = new vis.DataSet();
-
-//   // track the max value in each axis. used to scale the z axis
-
-//   var maxX = 0;
-//   var maxZ = 0;
-//   var minZ = 0;
-
-//   // create the animation data
-//   $.each(panels, function(idx0, slice) {
-//     $.each(slice, function(idx1, line) {
-//       if (Math.abs(line[0].x) > maxX) {
-//         maxX = Math.abs(line[0].x);
-//       } // abs value is used because if the number of phi divisions is odd the "max" extent may be on the negative side
-//       if (line[0].z > maxZ) {
-//         maxZ = line[0].z;
-//       }
-//       if (line[0].z < minZ) {
-//         minZ = line[0].z;
-//       }
-//       if (Math.abs(line[1].x) > maxX) {
-//         maxX = Math.abs(line[1].x);
-//       }
-//       if (line[1].z > maxZ) {
-//         maxZ = line[1].z;
-//       }
-//       if (line[1].z < minZ) {
-//         minZ = line[1].z;
-//       }
-//       //minZ = (line[1].z < minZ) ? line[1].z : minZ;
-//       data.add({
-//         x: line[0].x,
-//         y: line[0].y,
-//         z: line[0].z,
-//         style: parseInt(idx0) // color the dots by the panel column they are in
-//       });
-//       data.add({
-//         x: line[1].x,
-//         y: line[1].y,
-//         z: line[1].z,
-//         style: parseInt(idx0)
-//       });
-//     });
-//   });
-
-//   // specify options
-//   const options = {
-//     width: "100%",
-//     height: "600px",
-//     style: "dot-color",
-//     showPerspective: false,
-//     showGrid: true,
-//     keepAspectRatio: true,
-//     verticalRatio: (maxZ - minZ) / maxX * 0.5,
-//     legendLabel: "value",
-//     cameraPosition: {
-//       horizontal: -0.25,
-//       vertical: 0.25,
-//       distance: 1.6
-//     }
-//   };
-
-//   // create our graph
-//   const container = document.getElementById(elementid);
-//   graph = new vis.Graph3d(container, data, options);
-// }
-
-export function computePattern(state) {
+export function computePattern(state, projectionSettings) {
   // Reference equations for an ellipsoid
   // x = a cos(theta) cos(phi)
   // y = b cos(theta) sin(phi)
   // z = c sin(theta)
   // -pi/2 <= theta <= pi/2 (use 0 to pi/2 to get the top half)
   // -pi <= phi <= pi
-  const a = parseFloat(state.a);
-  const b = parseFloat(state.b);
-  const c = parseFloat(state.c);
-  const htop = parseFloat(state.hTop);
-  const hmiddle = parseFloat(state.hMiddle);
-  const hbottom = parseFloat(state.hBottom);
-  const htopfraction = parseFloat(state.hTopFraction);
-  const htopshift = parseFloat(state.hTopShift);
-  let Divisions = parseFloat(state.Divisions);
-  let divisions = parseFloat(state.divisions);
-  const theta_min = parseFloat(state.thetaMin) * Math.PI / 180;
-  const theta_max = parseFloat(state.thetaMax) * Math.PI / 180;
-  const projection = state.projection;
+  const a = state.a;
+  const b = state.b;
+  const c = state.c;
+  const theta_min = state.thetaMin * Math.PI / 180;
+  const theta_max = state.thetaMax * Math.PI / 180;
+
+  // const htop = state.hTop;
+  const htop = (theta_max <= 0 && state.hTop === 0) ? .0001 : state.hTop;
+  // hMiddle can't be zero if cylindrical projection is used so make it an insubstantially small number instead
+  const hmiddle = state.hMiddle === 0 ? .0001 : state.hMiddle; 
+  const hbottom = state.hBottom;
+  const htopfraction = state.hTopFraction;
+  const htopshift = state.hTopShift;
+  let Divisions = state.Divisions;
+  let divisions = state.divisions;
+
+  const projection = projectionSettings.projection;
 
 
   // -----------------------------------------------------------------------------
@@ -202,10 +131,10 @@ export function computePattern(state) {
     return -Math.PI + i * (2 * Math.PI / Divisions);
   });
 
-  console.log("thetas");
-  console.log(thetas);
-  console.log("phis");
-  console.log(phis);
+  console.debug("thetas");
+  console.debug(thetas);
+  console.debug("phis");
+  console.debug(phis);
 
   // --------------------------------------------------------------------------
   // generate all the points that make up the ellipsoid approximation based on the number of divisions specified
@@ -228,13 +157,13 @@ export function computePattern(state) {
   // Add height to ellipsoid
   // --------------------------------------------------------------------------
 
-  if (hmiddle !== 0) {
+  if (hmiddle !== 0 && (theta_max>0 && theta_min<0) ) { // if there is hmiddle specified and range of theta spans 0
     // find the widest point (top, bottom, or theta=0)
     let indexInsert = 0;
     while (ellipsoid[0][indexInsert].z < 0) {
       indexInsert++;
     }
-    console.log(indexInsert);
+    console.debug(indexInsert);
     divisions = divisions + 1;
     for (let indexp = 0; indexp <= Divisions; indexp++) {
       ellipsoid[indexp].splice(
@@ -284,8 +213,8 @@ export function computePattern(state) {
   let indexWide = 0;
   if (theta_min >= 0) {
     indexWide = 0;
-  } else if (theta_max < 0) {
-    indexWide = divisions;
+  } else if (theta_max <= 0) {
+    indexWide = divisions-1; // widest point is at top
   } else {
     while (ellipsoid[0][indexWide].z < 0) {
       indexWide++;
@@ -293,8 +222,8 @@ export function computePattern(state) {
     indexWide -= 1;
   }
 
-  console.log("Ellipsoid");
-  console.log(ellipsoid);
+  console.debug("Ellipsoid");
+  console.debug(ellipsoid);
 
   // --------------------------------------------------------------------------
   // Create panel object
@@ -314,16 +243,13 @@ export function computePattern(state) {
     }
   }
 
-  console.log("Panels");
-  console.log(panels);
-
-  // Populate 3D plot
-  //drawVisualization(panels, "mygraph");
+  console.debug("Panels");
+  console.debug(panels);
 
   const [panelsMin, panelsMax] = panelExtents(panels);
 
-  console.log("Divisions " + Divisions + "  divisions " + divisions);
-  console.log("Max z : " + panelsMax.z + " Min z : " + panelsMin.z);
+  console.debug("Divisions " + Divisions + "  divisions " + divisions);
+  console.debug("Max z : " + panelsMax.z + " Min z : " + panelsMin.z);
 
   // step through all the panels and flatten them
   // Flatten panel strips one at a time.  For each panel strip, loop through all the angles (theta)
@@ -357,12 +283,12 @@ export function computePattern(state) {
 
           // find angle of rotation.  this is the difference in angle from the prev panel to the current panel
           let rotationAngle = angleBetweenPlanes(panelsFlat[indexp][indext + 1][0], panelsFlat[indexp][indext + 1][1], panelsFlat[indexp][indext][0], topPoint);
-          // console.log("Index p: "+indexp+" t: "+indext);
-          // console.log(panels[indexp][indext + 1][0]);
-          // console.log(panels[indexp][indext + 1][1]);
-          // console.log(panels[indexp][indext][0]);
-          // console.log(topPoint);
-          // console.log("angle " + rotationAngle*180/pi);
+          // console.debug("Index p: "+indexp+" t: "+indext);
+          // console.debug(panels[indexp][indext + 1][0]);
+          // console.debug(panels[indexp][indext + 1][1]);
+          // console.debug(panels[indexp][indext][0]);
+          // console.debug(topPoint);
+          // console.debug("angle " + rotationAngle*180/pi);
 
           if (htop > 0 && indext === divisions - 2 && theta_max > 0) {
             rotationAngle = -rotationAngle;
@@ -407,11 +333,11 @@ export function computePattern(state) {
 
           // find angle of rotation.  this is the difference in angle from the prev panel to the current panel
           let rotationAngle = angleBetweenPlanes(panels[indexp][indext + 1][0], panels[indexp][indext + 1][1], panels[indexp][indext][0], topPoint);
-          //console.log(panels[indexp][indext + 1][0]);
-          //console.log(panels[indexp][indext + 1][1]);
-          //console.log(panels[indexp][indext][0]);
-          //console.log(topPoint);
-          //console.log(rotationAngle * 180 / pi);
+          //console.debug(panels[indexp][indext + 1][0]);
+          //console.debug(panels[indexp][indext + 1][1]);
+          //console.debug(panels[indexp][indext][0]);
+          //console.debug(topPoint);
+          //console.debug(rotationAngle * 180 / pi);
 
           if (htop > 0 && indext === divisions && theta_max > 0) {
             rotationAngle = -rotationAngle;
@@ -479,13 +405,14 @@ export function computePattern(state) {
       break;
 
     default:
-      console.log("ERROR - Projection Type");
+      console.error("ERROR - Projection Type");
   }
 
-  console.log("Panels Flattened");
-  console.log(panelsFlat);
+  console.debug("Panels Flattened");
+  console.debug(panelsFlat);
 
   return {
+    ellipsoid: ellipsoid,
     panels: panels,
     panelsFlat: panelsFlat,
     indexWide: indexWide
@@ -493,33 +420,30 @@ export function computePattern(state) {
 }
 
 
-export function drawPattern(state, ellipsoid, scope) {
+export function drawPattern(state, projectionSettings, ellipsoid, scope) {
 
-  const projection = state.projection;
-  const ppu = parseFloat(state.ppu);
-  const htop = parseFloat(state.hTop);
-  const mingap = parseFloat(state.minGap);
-  const Divisions = parseFloat(state.Divisions);
-  const divisions = parseFloat(state.divisions);
-  const image_offset = parseFloat(state.imageOffset);
+  const projection = projectionSettings.projection;
+  const ppu = state.ppu;
+  const htop = state.hTop;
+  const mingap = projectionSettings.minGap;
+  const image_offset = projectionSettings.imageOffset;
 
   const panelsFlat = cloneDeep(ellipsoid.panelsFlat);
 
   const indexWide = ellipsoid.indexWide;
+  const Divisions = ellipsoid.panelsFlat.length;
+  const divisions = ellipsoid.panelsFlat[0].length-1;
 
   // calculate a bounding box around the flattened pattern
 
   const [panelsFlatMin, panelsFlatMax] = panelExtents(panelsFlat);
 
-  console.log(
+  console.debug(
     "Flat Pattern Bounding Box " +
     pointToString(panelsFlatMin) +
     " " +
     pointToString(panelsFlatMax)
   );
-
-  // Populate 3D plot
-  //drawVisualization(panelsFlat, "mygraphF");
 
   const image = {
     width: 0,
@@ -546,10 +470,8 @@ export function drawPattern(state, ellipsoid, scope) {
       shift.y = image_offset;
       break;
     default:
-      console.log("ERROR - Projection Type");
+      console.error("ERROR - Projection Type");
   }
-
-
 
   const strokeWidth = 3 * ppu / 90; // enforce that the stroke width be scaled with the units of the drawing
 
@@ -599,7 +521,7 @@ export function drawPattern(state, ellipsoid, scope) {
       }
       break;
     case "cylindrical":
-      console.log("wide " + indexWide);
+      console.debug("wide " + indexWide);
       // let count = 0;
 
       for (let indexp = 0; indexp < Divisions; indexp++) {
@@ -647,7 +569,7 @@ export function drawPattern(state, ellipsoid, scope) {
 
       break;
     default:
-      console.log("ERROR - Projection Type");
+      console.error("ERROR - Projection Type");
   }
 
 
@@ -685,6 +607,8 @@ export function drawPattern(state, ellipsoid, scope) {
   guideLineLayer.name = 'Guide Lines';
   guideLineLayer.activate();
 
+  var group = new scope.Group();
+
   // add guide lines for gluing
   for (let indexp = 0; indexp < Divisions; indexp++) {
 
@@ -703,8 +627,9 @@ export function drawPattern(state, ellipsoid, scope) {
           line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][1].y) * ppu, (shift.y + panelsFlatMax.z - panelsFlat[indexp][indext][1].z) * ppu));
           break;
         default:
-          console.log("ERROR - Projection Type");
+          console.error("ERROR - Projection Type");
       }
+      group.addChild(line);
     }
   }
   patternLayer.activate();

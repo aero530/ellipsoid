@@ -1,15 +1,53 @@
 import React from 'react';
+import {connect} from 'react-redux';
+import {bindActionCreators} from 'redux';
 import EllipsoidInput from '../containers/ellipsoidInput';
+import ProjectionInput from '../containers/projectionInput';
+
+import geometryChanged from '../actions/geometryChanged';
+import projectionChanged from '../actions/projectionChanged';
 
 class InputForm extends React.Component {
-  submit = values => {
-    // print the form values to the console
-    console.log("submit");
-    console.log(values)
-  }
-  render() {
-    return <EllipsoidInput onSubmit={this.submit} />
-  }
+  constructor(props) {
+    super(props)
+    this.handleGeometryChanged = this.handleGeometryChanged.bind(this);
+    this.handleProjectionChanged = this.handleProjectionChanged.bind(this);
 }
 
-export default InputForm
+handleGeometryChanged(data) {
+  this.props.geometryChanged(data);
+}
+
+handleProjectionChanged(data) {
+  this.props.projectionChanged(data);
+}
+
+  render() {
+    return (
+      <div>
+      <EllipsoidInput onChange={this.handleGeometryChanged} />
+      <ProjectionInput onChange={this.handleProjectionChanged} />
+      </div>
+    );
+  }
+
+
+// componentDidMount() {
+//   this.handleGeometryChanged();
+//   this.handleProjectionChanged();
+// }
+
+}
+
+//connects redux actions to props
+function mapDispatchToProps(dispatch) {
+  return bindActionCreators({
+    geometryChanged: geometryChanged,
+    projectionChanged: projectionChanged
+  }, dispatch);
+}
+
+export default connect(null, mapDispatchToProps)(InputForm);
+
+
+// export default InputForm
