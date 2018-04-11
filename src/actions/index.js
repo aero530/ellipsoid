@@ -1,7 +1,12 @@
 import incrementCounter from './incrementCounter';
 import decrementCounter from './decrementCounter';
 import changeColor from './changeColor';
-import {geometryChanged, projectionChanged} from './inputs';
-import updateGeometry from './shape';
+import {updateGeometry, updatePattern} from './shape';
 
-export {incrementCounter, decrementCounter, changeColor, geometryChanged, projectionChanged, updateGeometry};
+export {
+    incrementCounter,
+    decrementCounter,
+    changeColor,
+    updateGeometry,
+    updatePattern
+};

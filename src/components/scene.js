@@ -2,9 +2,10 @@ import React, { Component } from 'react';
 import {connect} from 'react-redux';
 import {bindActionCreators} from 'redux';
 import * as paper from 'paper';
-import {drawPattern, computePattern} from './ellipsoid.js';
+import {computeGeometry, computePattern, drawPattern} from './ellipsoid.js';
 
 import {updateGeometry} from '../actions';
+import {updatePattern} from '../actions';
 
 class Scene extends Component {
     constructor(props) {
@@ -12,11 +13,15 @@ class Scene extends Component {
         window.paper = new paper.PaperScope();
         this.handleDownload = this.handleDownload.bind(this);
         this.handleUpdateGeometry = this.handleUpdateGeometry.bind(this);
+        this.handleUpdatePattern = this.handleUpdatePattern.bind(this);
     }
 
     handleUpdateGeometry(data) {
         this.props.updateGeometry(data);
-      }
+    }
+    handleUpdatePattern(data) {
+        this.props.updatePattern(data);
+    }
 
     handleDownload() {
         const scope = window.paper;
@@ -51,7 +56,7 @@ class Scene extends Component {
         link.click();
     }
 
-    handleDrawPattern() {
+    handleDrawPattern(pattern) {
         let scope = window.paper;
 
         if (scope.projects.length === 0) {  // if there is not a project define (first time this is loaded)
@@ -63,17 +68,13 @@ class Scene extends Component {
         var patternLayer = scope.project.activeLayer;
         patternLayer.name = 'Ellipsoid Pattern';
 
-        const shape = computePattern(this.props.geometrySettings, this.props.projectionSettings);
+        drawPattern(this.props.geometrySettings, this.props.projectionSettings, pattern, scope);
 
-        drawPattern(this.props.geometrySettings,this.props.projectionSettings, shape, scope);
-
-        this.handleUpdateGeometry(shape);
-        
         // Get the size of the 'Bounding Box' layer and use it to set the size of the image
         let imgWidth = scope.project.layers['Bounding Box'].bounds.width;
         let imgHeight = scope.project.layers['Bounding Box'].bounds.height;
 
-        let viewWidth = scope.view.viewSize.width
+        let viewWidth = scope.view.viewSize.width;
         let viewHeight = scope.view.viewSize.height;
 
         let zoom = Math.min(viewWidth/imgWidth, viewHeight/imgHeight);
@@ -83,6 +84,7 @@ class Scene extends Component {
        // scope.view.viewSize = new scope.Size(imgWidth*zoom,imgHeight*zoom);
         scope.view.center = scope.project.activeLayer.bounds.center;
 
+        console.log(scope);
         // var firstLayer = new scope.Layer();
         // firstLayer.name = 'Layer ABC';
         // firstLayer.activate();
@@ -114,18 +116,30 @@ class Scene extends Component {
     render() {
         return (
             <div>
-            <canvas id="paper" width={600} height={600} />
+            <canvas id="paper" width={900} height={900} />
             <button onClick={this.handleDownload}>Download</button>
             </div>
         )
     }
 
     componentDidUpdate() {
-        this.handleDrawPattern();
+        const geometry = computeGeometry(this.props.geometrySettings);
+        this.handleUpdateGeometry(geometry);
+
+        const pattern = computePattern(geometry, this.props.geometrySettings, this.props.projectionSettings.projection);
+        this.handleUpdatePattern(pattern);
+
+        this.handleDrawPattern(pattern);
     }
 
     componentDidMount() {
-        this.handleDrawPattern();
+        const geometry = computeGeometry(this.props.geometrySettings);
+        this.handleUpdateGeometry(geometry);
+
+        const pattern = computePattern(geometry,  this.props.geometrySettings, this.props.projectionSettings.projection);
+        this.handleUpdatePattern(pattern);
+
+        this.handleDrawPattern(pattern);
     }
 }
 
@@ -145,7 +159,8 @@ function mapStateToProps(state) {
 //connects redux actions to props
 function mapDispatchToProps(dispatch) {
     return bindActionCreators({
-        updateGeometry: updateGeometry
+        updateGeometry: updateGeometry,
+        updatePattern: updatePattern
     }, dispatch);
   }
 

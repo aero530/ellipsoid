@@ -16,6 +16,12 @@ import { angleBetweenPlanes, pointToString, rotatePoint, distance} from './geome
 // http://seiyria.com/bootstrap-slider/
 
 
+// Get the average (midpoint) between two paper.js points
+function averagePoints(point1, point2) {
+  var result = point1.add(point2).divide(2);
+  return result;
+}
+
 function panelExtents(array) {
   const arrayMax = {
     x: Number.NEGATIVE_INFINITY,
@@ -76,31 +82,28 @@ function panelExtents(array) {
   return [arrayMin, arrayMax];
 }
 
-export function computePattern(state, projectionSettings) {
+export function computeGeometry(geometrySettings) {
   // Reference equations for an ellipsoid
   // x = a cos(theta) cos(phi)
   // y = b cos(theta) sin(phi)
   // z = c sin(theta)
   // -pi/2 <= theta <= pi/2 (use 0 to pi/2 to get the top half)
   // -pi <= phi <= pi
-  const a = state.a;
-  const b = state.b;
-  const c = state.c;
-  const theta_min = state.thetaMin * Math.PI / 180;
-  const theta_max = state.thetaMax * Math.PI / 180;
+  const a = geometrySettings.a;
+  const b = geometrySettings.b;
+  const c = geometrySettings.c;
+  const theta_min = geometrySettings.thetaMin * Math.PI / 180;
+  const theta_max = geometrySettings.thetaMax * Math.PI / 180;
 
-  // const htop = state.hTop;
-  const htop = (theta_max <= 0 && state.hTop === 0) ? .0001 : state.hTop;
+  // const htop = geometrySettings.hTop;
+  const htop = (theta_max <= 0 && geometrySettings.hTop === 0) ? .0001 : geometrySettings.hTop;
   // hMiddle can't be zero if cylindrical projection is used so make it an insubstantially small number instead
-  const hmiddle = state.hMiddle === 0 ? .0001 : state.hMiddle; 
-  const hbottom = state.hBottom;
-  const htopfraction = state.hTopFraction;
-  const htopshift = state.hTopShift;
-  let Divisions = state.Divisions;
-  let divisions = state.divisions;
-
-  const projection = projectionSettings.projection;
-
+  const hmiddle = geometrySettings.hMiddle === 0 ? .0001 : geometrySettings.hMiddle; 
+  const hbottom = geometrySettings.hBottom;
+  const htopfraction = geometrySettings.hTopFraction;
+  const htopshift = geometrySettings.hTopShift;
+  let Divisions = geometrySettings.Divisions;
+  let divisions = geometrySettings.divisions;
 
   // -----------------------------------------------------------------------------
   // Compute basic dimensions of the ellipsoid
@@ -225,6 +228,26 @@ export function computePattern(state, projectionSettings) {
   console.debug("Ellipsoid");
   console.debug(ellipsoid);
 
+  return {
+    geometry: ellipsoid,
+    indexWide: indexWide,
+    divisions: divisions,
+    Divisions: Divisions
+  };
+}
+
+export function computePattern(geometry, geometrySettings, projection) {
+
+  const theta_min = geometrySettings.thetaMin * Math.PI / 180;
+  const theta_max = geometrySettings.thetaMax * Math.PI / 180;
+  const htop = (theta_max <= 0 && geometrySettings.hTop === 0) ? .0001 : geometrySettings.hTop;
+  const hbottom = geometrySettings.hBottom;
+
+  const Divisions = geometry.Divisions;
+  const divisions = geometry.divisions;
+  const ellipsoid = geometry.geometry;
+  const indexWide = geometry.indexWide;
+
   // --------------------------------------------------------------------------
   // Create panel object
   // --------------------------------------------------------------------------
@@ -260,10 +283,6 @@ export function computePattern(state, projectionSettings) {
   // --------------------------------------------------------------------------
   // Flatten the panels
   // --------------------------------------------------------------------------
-
-  //const panelsFlat = jQuery.extend(true, [], panels);
-  // const panelsFlat = Array.from(panels);
-  //const panelsFlat = Object.assign({},panels);
   const panelsFlat = cloneDeep(panels);
 
   switch (projection) {
@@ -283,12 +302,6 @@ export function computePattern(state, projectionSettings) {
 
           // find angle of rotation.  this is the difference in angle from the prev panel to the current panel
           let rotationAngle = angleBetweenPlanes(panelsFlat[indexp][indext + 1][0], panelsFlat[indexp][indext + 1][1], panelsFlat[indexp][indext][0], topPoint);
-          // console.debug("Index p: "+indexp+" t: "+indext);
-          // console.debug(panels[indexp][indext + 1][0]);
-          // console.debug(panels[indexp][indext + 1][1]);
-          // console.debug(panels[indexp][indext][0]);
-          // console.debug(topPoint);
-          // console.debug("angle " + rotationAngle*180/pi);
 
           if (htop > 0 && indext === divisions - 2 && theta_max > 0) {
             rotationAngle = -rotationAngle;
@@ -333,12 +346,7 @@ export function computePattern(state, projectionSettings) {
 
           // find angle of rotation.  this is the difference in angle from the prev panel to the current panel
           let rotationAngle = angleBetweenPlanes(panels[indexp][indext + 1][0], panels[indexp][indext + 1][1], panels[indexp][indext][0], topPoint);
-          //console.debug(panels[indexp][indext + 1][0]);
-          //console.debug(panels[indexp][indext + 1][1]);
-          //console.debug(panels[indexp][indext][0]);
-          //console.debug(topPoint);
-          //console.debug(rotationAngle * 180 / pi);
-
+          
           if (htop > 0 && indext === divisions && theta_max > 0) {
             rotationAngle = -rotationAngle;
           }
@@ -411,28 +419,40 @@ export function computePattern(state, projectionSettings) {
   console.debug("Panels Flattened");
   console.debug(panelsFlat);
 
-  return {
-    geometry: ellipsoid,
-    panels: panels,
-    panelsFlat: panelsFlat,
-    indexWide: indexWide
-  };
+
+  switch (projection) {
+    case "spherical":
+      return {panelsFlat: panelsFlat, panels: panels, indexWide: indexWide};
+    case "cylindrical":
+      // reorder the points of the flattened panels to be in the x/y domain
+      let output = Array.from(panelsFlat,function(val1,idx1) {
+        return (
+          Array.from(val1, function(val2,idx2){
+            return Array.from(val2, function(val3,idx3){
+              return {x:val3.y*-1, y:val3.z, z:val3.x };
+            })
+          })
+        );
+      });
+      return {panelsFlat: output, panels: panels, indexWide: indexWide};
+    default:
+      console.error("ERROR - Projection Type");
+  }
 }
 
-
-export function drawPattern(state, projectionSettings, ellipsoid, scope) {
+export function drawPattern(geometrySettings, projectionSettings, pattern, scope) {
 
   const projection = projectionSettings.projection;
-  const ppu = state.ppu;
-  const htop = state.hTop;
+  const ppu = geometrySettings.ppu;
+  const htop = geometrySettings.hTop;
   const mingap = projectionSettings.minGap;
   const image_offset = projectionSettings.imageOffset;
 
-  const panelsFlat = cloneDeep(ellipsoid.panelsFlat);
+  const panelsFlat = cloneDeep(pattern.panelsFlat);
 
-  const indexWide = ellipsoid.indexWide;
-  const Divisions = ellipsoid.panelsFlat.length;
-  const divisions = ellipsoid.panelsFlat[0].length-1;
+  const indexWide = pattern.indexWide;
+  const Divisions = pattern.panelsFlat.length;
+  const divisions = pattern.panelsFlat[0].length-1;
 
   // calculate a bounding box around the flattened pattern
 
@@ -456,18 +476,17 @@ export function drawPattern(state, projectionSettings, ellipsoid, scope) {
     y: 0
   };
 
+  image.width = (panelsFlatMax.x - panelsFlatMin.x + 2 * image_offset) * ppu;
+  image.height = (panelsFlatMax.y - panelsFlatMin.y + 2 * image_offset) * ppu;
+
   switch (projection) {
     case "spherical":
-      image.width = (panelsFlatMax.x - panelsFlatMin.x + 2 * image_offset) * ppu;
-      image.height = (panelsFlatMax.y - panelsFlatMin.y + 2 * image_offset) * ppu;
       shift.x = (panelsFlatMax.x - panelsFlatMin.x) / 2 + image_offset;
       shift.y = (panelsFlatMax.y - panelsFlatMin.y) / 2 + image_offset;
       break;
     case "cylindrical":
-      image.width = (panelsFlatMax.y - panelsFlatMin.y + 2 * image_offset) * ppu;
-      image.height = (panelsFlatMax.z - panelsFlatMin.z + 2 * image_offset) * ppu;
-      shift.x = Math.abs(panelsFlatMin.y) + image_offset;
-      shift.y = image_offset;
+      shift.x = Math.abs(panelsFlatMin.x) + image_offset;
+      shift.y = image_offset + panelsFlatMax.y;
       break;
     default:
       console.error("ERROR - Projection Type");
@@ -531,7 +550,7 @@ export function drawPattern(state, projectionSettings, ellipsoid, scope) {
         for (let indext = indexWide; indext >= 0; indext--) {
           if (distance(panelsFlat[idxPhiPrev][indext][1], panelsFlat[indexp][indext][0]) > mingap) {
             // Enforce minimum gap
-            points_full.push([shift.x + panelsFlat[indexp][indext][0].y, shift.y + panelsFlatMax.z - panelsFlat[indexp][indext][0].z]);
+            points_full.push([shift.x + panelsFlat[indexp][indext][0].x, shift.y - panelsFlat[indexp][indext][0].y]);
             // s.text((shift.x + panelsFlat[indexp][indext][0].y)*ppu, (shift.y + panelsFlatMax.z-panelsFlat[indexp][indext][0].z)*ppu,"b "+indexp+" "+indext+" "+count).attr({'fill' : 'green',  'stroke': 'green'});
             // count += 1;
           }
@@ -539,7 +558,7 @@ export function drawPattern(state, projectionSettings, ellipsoid, scope) {
         for (let indext = 0; indext <= indexWide; indext++) {
           if (distance(panelsFlat[idxPhiNext][indext][0], panelsFlat[indexp][indext][1]) > mingap) {
             // Enforce minimum gap
-            points_full.push([shift.x + panelsFlat[indexp][indext][1].y, shift.y + panelsFlatMax.z - panelsFlat[indexp][indext][1].z]);
+            points_full.push([shift.x + panelsFlat[indexp][indext][1].x, shift.y - panelsFlat[indexp][indext][1].y]);
             // s.text((shift.x + panelsFlat[indexp][indext][1].y)*ppu, (shift.y + panelsFlatMax.z-panelsFlat[indexp][indext][1].z)*ppu,"d "+indexp+" "+indext+" "+count).attr({'fill' : 'yellow',  'stroke': 'yellow'});
             // count += 1;
           }
@@ -552,7 +571,7 @@ export function drawPattern(state, projectionSettings, ellipsoid, scope) {
         for (let indext = indexWide; indext <= divisions; indext++) {
           if (distance(panelsFlat[idxPhiPrev][indext][0], panelsFlat[indexp][indext][1]) > mingap) {
             // Enforce minimum gap
-            points_full.push([shift.x + panelsFlat[indexp][indext][1].y, shift.y + panelsFlatMax.z - panelsFlat[indexp][indext][1].z]);
+            points_full.push([shift.x + panelsFlat[indexp][indext][1].x, shift.y - panelsFlat[indexp][indext][1].y]);
             // s.text((shift.x + panelsFlat[indexp][indext][1].y)*ppu, (shift.y + panelsFlatMax.z-panelsFlat[indexp][indext][1].z)*ppu,"f "+indexp+" "+indext+" "+count).attr({'fill' : 'pink',  'stroke': 'pink'});
             // count += 1;
           }
@@ -560,7 +579,7 @@ export function drawPattern(state, projectionSettings, ellipsoid, scope) {
         for (let indext = divisions; indext > indexWide; indext--) {
           if (distance(panelsFlat[idxPhiNext][indext][1], panelsFlat[indexp][indext][0]) > mingap) {
             // Enforce minimum gap
-            points_full.push([shift.x + panelsFlat[indexp][indext][0].y, shift.y + panelsFlatMax.z - panelsFlat[indexp][indext][0].z]);
+            points_full.push([shift.x + panelsFlat[indexp][indext][0].x, shift.y - panelsFlat[indexp][indext][0].y]);
             // s.text((shift.x + panelsFlat[indexp][indext][0].y)*ppu, (shift.y + panelsFlatMax.z-panelsFlat[indexp][indext][0].z)*ppu,"h "+indexp+" "+indext+" "+count).attr({'fill' : 'orange',  'stroke': 'orange'});
             // count += 1;
           }
@@ -606,31 +625,123 @@ export function drawPattern(state, projectionSettings, ellipsoid, scope) {
   const guideLineLayer = new scope.Layer();
   guideLineLayer.name = 'Guide Lines';
   guideLineLayer.activate();
-
   var group = new scope.Group();
-
-  // add guide lines for gluing
   for (let indexp = 0; indexp < Divisions; indexp++) {
-
     for (let indext = 1; indext <= divisions; indext++) {
-      var line = new scope.Path({
+      let line = new scope.Path({
         strokeColor: new scope.Color(0, 1, 0),
         strokeWidth: strokeWidth * 0.25
       })
-      switch (projection) {
-        case "spherical":
-          line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][0].x) * ppu, (shift.y + panelsFlat[indexp][indext][0].y) * ppu));
-          line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][1].x) * ppu, (shift.y + panelsFlat[indexp][indext][1].y) * ppu));
-          break;
-        case "cylindrical":
-          line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][0].y) * ppu, (shift.y + panelsFlatMax.z - panelsFlat[indexp][indext][0].z) * ppu));
-          line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][1].y) * ppu, (shift.y + panelsFlatMax.z - panelsFlat[indexp][indext][1].z) * ppu));
-          break;
-        default:
-          console.error("ERROR - Projection Type");
-      }
+      line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][0].x) * ppu, (shift.y - panelsFlat[indexp][indext][0].y) * ppu));
+      line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][1].x) * ppu, (shift.y - panelsFlat[indexp][indext][1].y) * ppu));
       group.addChild(line);
     }
   }
+
+  // -----------------------------------------------------------------------------
+  // draw pattern clip quadrilaterals
+  // -----------------------------------------------------------------------------
+  const quadLayer = new scope.Layer();
+  quadLayer.name = 'Pattern Destination Quadrilaterals';
+  quadLayer.activate();
+  for (let indexp = 0; indexp < Divisions; indexp++) {
+    for (let indext = 0; indext < divisions; indext++) {
+      let line = new scope.Path({
+        strokeColor: new scope.Color(1, 0, 0),
+        strokeWidth: strokeWidth * 0.25
+      })
+      line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][0].x) * ppu, (shift.y - panelsFlat[indexp][indext][0].y) * ppu));
+      line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][1].x) * ppu, (shift.y - panelsFlat[indexp][indext][1].y) * ppu));
+      line.add(new scope.Point((shift.x + panelsFlat[indexp][indext+1][1].x) * ppu, (shift.y - panelsFlat[indexp][indext+1][1].y) * ppu));
+      line.add(new scope.Point((shift.x + panelsFlat[indexp][indext+1][0].x) * ppu, (shift.y - panelsFlat[indexp][indext+1][0].y) * ppu));
+      line.closed = true;
+    }
+  }
+
+
+  
+  // -----------------------------------------------------------------------------
+  // draw source pattern quadrilaterals
+  // -----------------------------------------------------------------------------
+  const quadSourceLayer = new scope.Layer();
+  quadSourceLayer.name = 'Pattern Source Quadrilaterals';
+  quadSourceLayer.activate();
+
+  const leftX = panelsFlat[0][indexWide][0].x;
+  const rightX = panelsFlat[Divisions-1][indexWide][1].x;
+
+  for (let indexp = 0; indexp < Divisions; indexp++) {
+    for (let indext = 0; indext < divisions; indext++) {
+      let line = new scope.Path({
+        strokeColor: new scope.Color(1, 0, 1),
+        strokeWidth: strokeWidth * 0.25
+      })
+
+      const P1a = new scope.Point();
+      const P1b = new scope.Point();
+      const P2a = new scope.Point();
+      const P2b = new scope.Point();
+      const P3a = new scope.Point();
+      const P3b = new scope.Point();
+      const P4a = new scope.Point();
+      const P4b = new scope.Point();
+
+      // Since the first and last panels (Divisions) connect to eachother and are always symmetrical, the pattern mapping along
+      // the left and right edges will be a vertical line.  The if block below enforces that symmetry.
+      if (indexp === 0) {
+        if (projection ==="spherical") {
+          P1a.set( (shift.x + panelsFlat[indexp][indext][0].x) * ppu, (shift.y - panelsFlat[indexp][indext][0].y) * ppu);
+          P1b.set( (shift.x + panelsFlat[Divisions-1][indext][1].x) * ppu, (shift.y - panelsFlat[Divisions-1][indext][1].y) * ppu);
+          P2a.set( (shift.x + panelsFlat[indexp][indext+1][0].x) * ppu, (shift.y - panelsFlat[indexp][indext+1][0].y) * ppu);
+          P2b.set( (shift.x + panelsFlat[Divisions-1][indext+1][1].x) * ppu, (shift.y - panelsFlat[Divisions-1][indext+1][1].y) * ppu);
+        } else {
+          P1a.set( (shift.x + leftX) * ppu, (shift.y - panelsFlat[indexp][indext][0].y) * ppu);
+          P1b.set( (shift.x + leftX) * ppu, (shift.y - panelsFlat[indexp][indext][0].y) * ppu);
+          P2a.set( (shift.x + leftX) * ppu, (shift.y - panelsFlat[indexp][indext+1][0].y) * ppu);
+          P2b.set( (shift.x + leftX) * ppu, (shift.y - panelsFlat[indexp][indext+1][0].y) * ppu);
+        }
+        P3a.set( (shift.x + panelsFlat[indexp][indext+1][1].x) * ppu, (shift.y - panelsFlat[indexp][indext+1][1].y) * ppu);
+        P3b.set( (shift.x + panelsFlat[indexp+1][indext+1][0].x) * ppu, (shift.y - panelsFlat[indexp+1][indext+1][0].y) * ppu);
+        P4a.set( (shift.x + panelsFlat[indexp][indext][1].x) * ppu, (shift.y - panelsFlat[indexp][indext][1].y) * ppu);
+        P4b.set( (shift.x + panelsFlat[indexp+1][indext][0].x) * ppu, (shift.y - panelsFlat[indexp+1][indext][0].y) * ppu);
+      } else if (indexp === Divisions-1) {
+        P1a.set( (shift.x + panelsFlat[indexp][indext][0].x) * ppu, (shift.y - panelsFlat[indexp][indext][0].y) * ppu);
+        P1b.set( (shift.x + panelsFlat[indexp-1][indext][1].x) * ppu, (shift.y - panelsFlat[indexp-1][indext][1].y) * ppu);
+        P2a.set( (shift.x + panelsFlat[indexp][indext+1][0].x) * ppu, (shift.y - panelsFlat[indexp][indext+1][0].y) * ppu);
+        P2b.set( (shift.x + panelsFlat[indexp-1][indext+1][1].x) * ppu, (shift.y - panelsFlat[indexp-1][indext+1][1].y) * ppu);
+        if (projection === "spherical") {
+          P3a.set( (shift.x + panelsFlat[indexp][indext+1][1].x) * ppu, (shift.y - panelsFlat[indexp][indext+1][1].y) * ppu);
+          P3b.set( (shift.x + panelsFlat[0][indext+1][0].x) * ppu, (shift.y - panelsFlat[0][indext+1][0].y) * ppu);
+          P4a.set( (shift.x + panelsFlat[indexp][indext][1].x) * ppu, (shift.y - panelsFlat[indexp][indext][1].y) * ppu);
+          P4b.set( (shift.x + panelsFlat[0][indext][0].x) * ppu, (shift.y - panelsFlat[0][indext][0].y) * ppu);
+        } else {
+          P3a.set( (shift.x + rightX) * ppu, (shift.y - panelsFlat[indexp][indext+1][1].y) * ppu);
+          P3b.set( (shift.x + rightX) * ppu, (shift.y - panelsFlat[indexp][indext+1][1].y) * ppu);
+          P4a.set( (shift.x + rightX) * ppu, (shift.y - panelsFlat[indexp][indext][1].y) * ppu);
+          P4b.set( (shift.x + rightX) * ppu, (shift.y - panelsFlat[indexp][indext][1].y) * ppu);
+        }
+        
+      } else {
+        P1a.set( (shift.x + panelsFlat[indexp][indext][0].x) * ppu, (shift.y - panelsFlat[indexp][indext][0].y) * ppu);
+        P1b.set( (shift.x + panelsFlat[indexp-1][indext][1].x) * ppu, (shift.y - panelsFlat[indexp-1][indext][1].y) * ppu);
+        P2a.set( (shift.x + panelsFlat[indexp][indext+1][0].x) * ppu, (shift.y - panelsFlat[indexp][indext+1][0].y) * ppu);
+        P2b.set( (shift.x + panelsFlat[indexp-1][indext+1][1].x) * ppu, (shift.y - panelsFlat[indexp-1][indext+1][1].y) * ppu);
+        P3a.set( (shift.x + panelsFlat[indexp][indext+1][1].x) * ppu, (shift.y - panelsFlat[indexp][indext+1][1].y) * ppu);
+        P3b.set( (shift.x + panelsFlat[indexp+1][indext+1][0].x) * ppu, (shift.y - panelsFlat[indexp+1][indext+1][0].y) * ppu);
+        P4a.set( (shift.x + panelsFlat[indexp][indext][1].x) * ppu, (shift.y - panelsFlat[indexp][indext][1].y) * ppu);
+        P4b.set( (shift.x + panelsFlat[indexp+1][indext][0].x) * ppu, (shift.y - panelsFlat[indexp+1][indext][0].y) * ppu);
+      }
+
+      line.add(averagePoints(P1a,P1b));
+      line.add(averagePoints(P2a,P2b));
+      line.add(averagePoints(P3a,P3b));
+      line.add(averagePoints(P4a,P4b));
+      line.closed = true;
+    }
+  }
+
+
   patternLayer.activate();
+
 }
+

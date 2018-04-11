@@ -1,7 +1,6 @@
 import React from 'react';
 import { Field, reduxForm } from 'redux-form';
 
-
 // initial values are numbers here.  when input comes from the form it comes in as a string.  the strings are parsed by in ellipsoid.js
 const initialValues = {
     a : 3.75, //in - major axis radius
@@ -27,6 +26,7 @@ const greaterThan = otherField =>
 
 const EllipsoidInput = (props) => {
     const { handleSubmit, pristine, reset, submitting } = props
+
     return (
       <form onSubmit={handleSubmit}>
       <div>
@@ -79,10 +79,10 @@ const EllipsoidInput = (props) => {
 
         <div>
             <label>Divisions </label>
-            <Field name="Divisions" component="input" type="number" min="0" max="100" step="1" parse={value => Number(value)} />
+            <Field name="Divisions" component="input" type="number" min="5" max="100" step="1" parse={value => Number(value)} />
 
             <label> divisions </label>
-            <Field name="divisions" component="input" type="number" min="0" max="100" step="1" parse={value => Number(value)} />
+            <Field name="divisions" component="input" type="number" min="3" max="100" step="1" parse={value => Number(value)} />
         </div>
 
         <div>

@@ -1,9 +1,18 @@
 import { UPDATEGEOMETRY } from '../actions/types';
+import { UPDATEPATTERN } from '../actions/types';
 
-export default function(state="default", action) {
+export default function(state={}, action) {
   switch (action.type) {
     case UPDATEGEOMETRY:
-      return action.payload;
+      return {
+        ...state,         
+        ...action.payload
+      };
+      case UPDATEPATTERN:
+      return {
+        ...state,         
+        ...action.payload
+      };
     default:
       return state;
   }
