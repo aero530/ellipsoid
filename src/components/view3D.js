@@ -92,7 +92,7 @@ function mapStateToProps(state, ownprops) {
     return {
         id: ownprops.geometry,
         size: ownprops.size,
-        shape: state.ellipsoid[ownprops.geometry]
+        shape: state.shape[ownprops.geometry]
     }
 }
   

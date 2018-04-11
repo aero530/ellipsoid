@@ -1,8 +1,7 @@
-import incrementCounter from '../actions/incrementCounter';
-import decrementCounter from '../actions/decrementCounter';
-import changeColor from '../actions/changeColor';
-import geometryChanged from '../actions/geometryChanged';
-import projectionChanged from '../actions/projectionChanged';
-import updateEllipsoid from '../actions/updateEllipsoid';
+import incrementCounter from './incrementCounter';
+import decrementCounter from './decrementCounter';
+import changeColor from './changeColor';
+import {geometryChanged, projectionChanged} from './inputs';
+import updateGeometry from './shape';
 
-export {incrementCounter, decrementCounter, changeColor, geometryChanged, projectionChanged, updateEllipsoid};
+export {incrementCounter, decrementCounter, changeColor, geometryChanged, projectionChanged, updateGeometry};

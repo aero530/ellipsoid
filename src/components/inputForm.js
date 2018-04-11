@@ -4,12 +4,11 @@ import {bindActionCreators} from 'redux';
 import EllipsoidInput from '../containers/ellipsoidInput';
 import ProjectionInput from '../containers/projectionInput';
 
-import geometryChanged from '../actions/geometryChanged';
-import projectionChanged from '../actions/projectionChanged';
+import {projectionChanged, geometryChanged} from '../actions';
 
 class InputForm extends React.Component {
   constructor(props) {
-    super(props)
+    super(props);
     this.handleGeometryChanged = this.handleGeometryChanged.bind(this);
     this.handleProjectionChanged = this.handleProjectionChanged.bind(this);
 }
@@ -31,12 +30,6 @@ handleProjectionChanged(data) {
     );
   }
 
-
-// componentDidMount() {
-//   this.handleGeometryChanged();
-//   this.handleProjectionChanged();
-// }
-
 }
 
 //connects redux actions to props
@@ -48,6 +41,3 @@ function mapDispatchToProps(dispatch) {
 }
 
 export default connect(null, mapDispatchToProps)(InputForm);
-
-
-// export default InputForm

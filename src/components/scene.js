@@ -4,18 +4,18 @@ import {bindActionCreators} from 'redux';
 import * as paper from 'paper';
 import {drawPattern, computePattern} from './ellipsoid.js';
 
-import {updateEllipsoid} from '../actions';
+import {updateGeometry} from '../actions';
 
 class Scene extends Component {
     constructor(props) {
         super(props)
         window.paper = new paper.PaperScope();
         this.handleDownload = this.handleDownload.bind(this);
-        this.handleUpdateEllipsoid = this.handleUpdateEllipsoid.bind(this);
+        this.handleUpdateGeometry = this.handleUpdateGeometry.bind(this);
     }
 
-    handleUpdateEllipsoid(data) {
-        this.props.updateEllipsoid(data);
+    handleUpdateGeometry(data) {
+        this.props.updateGeometry(data);
       }
 
     handleDownload() {
@@ -63,11 +63,11 @@ class Scene extends Component {
         var patternLayer = scope.project.activeLayer;
         patternLayer.name = 'Ellipsoid Pattern';
 
-        const ellipsoid = computePattern(this.props.geometrySettings, this.props.projectionSettings);
+        const shape = computePattern(this.props.geometrySettings, this.props.projectionSettings);
 
-        drawPattern(this.props.geometrySettings,this.props.projectionSettings, ellipsoid, scope);
+        drawPattern(this.props.geometrySettings,this.props.projectionSettings, shape, scope);
 
-        this.handleUpdateEllipsoid(ellipsoid);
+        this.handleUpdateGeometry(shape);
         
         // Get the size of the 'Bounding Box' layer and use it to set the size of the image
         let imgWidth = scope.project.layers['Bounding Box'].bounds.width;
@@ -145,7 +145,7 @@ function mapStateToProps(state) {
 //connects redux actions to props
 function mapDispatchToProps(dispatch) {
     return bindActionCreators({
-        updateEllipsoid: updateEllipsoid
+        updateGeometry: updateGeometry
     }, dispatch);
   }
 

@@ -412,7 +412,7 @@ export function computePattern(state, projectionSettings) {
   console.debug(panelsFlat);
 
   return {
-    ellipsoid: ellipsoid,
+    geometry: ellipsoid,
     panels: panels,
     panelsFlat: panelsFlat,
     indexWide: indexWide

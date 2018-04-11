@@ -1,8 +1,8 @@
-import { GEOMETRYCHANGED } from '../actions/types';
+import { UPDATEGEOMETRY } from '../actions/types';
 
 export default function(state="default", action) {
   switch (action.type) {
-    case GEOMETRYCHANGED:
+    case UPDATEGEOMETRY:
       return action.payload;
     default:
       return state;
