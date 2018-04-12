@@ -1,6 +1,7 @@
 import incrementCounter from './incrementCounter';
 import decrementCounter from './decrementCounter';
 import changeColor from './changeColor';
+import fileImport from './file';
 import {updateGeometry, updatePattern} from './shape';
 
 export {
@@ -8,5 +9,6 @@ export {
     decrementCounter,
     changeColor,
     updateGeometry,
-    updatePattern
+    updatePattern,
+    fileImport
 };
