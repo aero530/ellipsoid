@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import {connect} from 'react-redux';
 import {bindActionCreators} from 'redux';
 import * as paper from 'paper';
+import * as perspective from 'perspective-transform';
 import {computeGeometry, computePattern, drawPattern} from './ellipsoid.js';
 
 import {updateGeometry} from '../actions';
@@ -11,6 +12,7 @@ class Scene extends Component {
     constructor(props) {
         super(props)
         window.paper = new paper.PaperScope();
+        this.handleTexture = this.handleTexture.bind(this);
         this.handleDownload = this.handleDownload.bind(this);
         this.handleUpdateGeometry = this.handleUpdateGeometry.bind(this);
         this.handleUpdatePattern = this.handleUpdatePattern.bind(this);
@@ -112,7 +114,124 @@ class Scene extends Component {
         // ellipse.fillColor = new scope.Color(this.props.color[0]/255, this.props.color[1]/255, this.props.color[2]/255);
 
     }
-    
+
+    handleTexture() {
+        const textureSVG = this.props.texture;
+        const scale = 10;
+
+        const scope = window.paper;
+
+        if (textureSVG !== "") {
+            const patternLayer = scope.project.layers['Ellipsoid Pattern'];
+
+            let patternWidth = scope.project.layers['Bounding Box'].bounds.width;
+            let patternHeight = scope.project.layers['Bounding Box'].bounds.height;
+
+            const textureLayer = new scope.Layer();
+            textureLayer.name = 'Texture';
+            textureLayer.activate();
+
+            // get all the items from the import that are paths
+            let inputPaths = scope.project.importSVG(textureSVG, {insert:false}).getItems({class: "Path"});
+
+            // create new compound path to hold the imported paths
+            let texture = new scope.CompoundPath();
+
+            // copy all the imported paths to the compound path and set its color, name, and scale
+            texture.addChildren(inputPaths);
+            texture.fillColor = new scope.Color(0, .5, .2);
+            texture.scale(scale,new scope.Point(0,0));
+            texture.name="source-texture";
+
+            console.log(texture);
+
+            let countX = patternWidth/texture.bounds.width;
+            let countY = patternHeight/texture.bounds.height;
+            
+            // create a new compound path for the arrayed texture
+            let textureArray = new scope.CompoundPath();
+
+            // array (clone) the texture path to cover the entire pattern
+            for (let i = 0; i < countX; i++) {
+                for (let j = 0; j< countY; j++) {
+                    let copy = texture.clone();
+                    // Shift copy to new location
+                    copy.position.x += i * copy.bounds.width;
+                    copy.position.y += j * copy.bounds.height;
+                    // put copy's content into textureArray then remove it
+                    textureArray.addChildren(copy.getItems({class: "Path"}));
+                    copy.remove();
+                }  
+            }
+            textureArray.fillColor = new scope.Color(1, 0, 0);
+
+            // don't need the source texture input anymore
+            texture.remove();
+
+            console.log(scope);
+
+            
+            // Intersect the textureArray compound path with each source qualrilateral
+            let panelCount = scope.project.layers['Pattern Source Quadrilaterals'].children.length;
+
+            for (let i = 0; i < panelCount; i++) {
+                console.time('Intersect '+i+' of '+panelCount);
+                let path1 = scope.project.layers['Pattern Source Quadrilaterals'].children[i].clone();
+                let result = textureArray.intersect(path1);
+                result.fillColor = new scope.Color(.5, .5, .5);
+                result.name = 'pattern-'+i;
+                console.timeEnd('Intersect '+i+' of '+panelCount);
+                path1.remove();
+            }
+            
+            // don't need the source textureArray anymore
+            textureArray.remove();
+
+
+
+            for (let i = 0; i < 40; i++) {
+                //console.time('Intersect '+i+' of '+panelCount);
+                const pathSource = scope.project.layers['Pattern Source Quadrilaterals'].children[i].clone();
+                const pathDest = scope.project.layers['Pattern Destination Quadrilaterals'].children[i].clone();
+                //console.log(pathSource);
+                //console.log(pathDest);
+
+                const srcCorners = [];
+                const dstCorners = [];
+
+                for (let j=0; j<4; j++) {
+                    srcCorners.push(pathSource.segments[j].point.x);
+                    srcCorners.push(pathSource.segments[j].point.y);
+                    dstCorners.push(pathDest.segments[j].point.x);
+                    dstCorners.push(pathDest.segments[j].point.y);
+                }
+
+                const perspT = perspective(srcCorners, dstCorners);
+
+                let stretched = scope.project.layers['Pattern Source Quadrilaterals'].children[i].clone();//scope.project.activeLayer.children['pattern-'+i].clone();
+                stretched.fillColor = new scope.Color(.5, .5, 1);
+
+                for (let j=0; j<stretched.segments.length; j++) {
+                    const tempX = stretched.segments[j].point.x;
+                    const tempY = stretched.segments[j].point.y;
+                    const dstPt = perspT.transform(tempX, tempY);
+                    stretched.segments[j].point.x = dstPt[0];
+                    stretched.segments[j].point.y = dstPt[1];
+                }
+                //console.log(scope.project.activeLayer.children['pattern-'+i]);
+
+                //console.timeEnd('Intersect '+i+' of '+panelCount);
+                
+            }
+
+            // reactivate the pattern layer for good measure
+            patternLayer.activate();
+
+            console.log(scope);
+        }
+    }
+
+
     render() {
         return (
             <div>
@@ -130,6 +249,7 @@ class Scene extends Component {
         this.handleUpdatePattern(pattern);
 
         this.handleDrawPattern(pattern);
+        this.handleTexture();
     }
 
     componentDidMount() {
@@ -140,6 +260,7 @@ class Scene extends Component {
         this.handleUpdatePattern(pattern);
 
         this.handleDrawPattern(pattern);
+        this.handleTexture();
     }
 }
 
@@ -152,7 +273,8 @@ function mapStateToProps(state) {
       a: state.form.EllipsoidInput.values.a.toFixed(2).toString(),
       b: state.form.EllipsoidInput.values.b.toFixed(2).toString(),
       c: state.form.EllipsoidInput.values.c.toFixed(2).toString(),
-      ppu: state.form.EllipsoidInput.values.ppu
+      ppu: state.form.EllipsoidInput.values.ppu,
+      texture: state.file
     }
   }
 

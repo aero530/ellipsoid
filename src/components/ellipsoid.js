@@ -737,6 +737,7 @@ export function drawPattern(geometrySettings, projectionSettings, pattern, scope
       line.add(averagePoints(P3a,P3b));
       line.add(averagePoints(P4a,P4b));
       line.closed = true;
+      
     }
   }
 
