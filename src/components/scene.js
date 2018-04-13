@@ -8,6 +8,12 @@ import {computeGeometry, computePattern, drawPattern} from './ellipsoid.js';
 import {updateGeometry} from '../actions';
 import {updatePattern} from '../actions';
 
+// // WebWorker helper class
+import WebWorker from './WebWorker';
+// // Your web worker
+import intersection from './intersection';
+
+
 class Scene extends Component {
     constructor(props) {
         super(props)
@@ -16,6 +22,7 @@ class Scene extends Component {
         this.handleDownload = this.handleDownload.bind(this);
         this.handleUpdateGeometry = this.handleUpdateGeometry.bind(this);
         this.handleUpdatePattern = this.handleUpdatePattern.bind(this);
+        
     }
 
     handleUpdateGeometry(data) {
@@ -117,7 +124,7 @@ class Scene extends Component {
 
     handleTexture() {
         const textureSVG = this.props.texture;
-        const scale = 10;
+        const scale = 8;
 
         const scope = window.paper;
 
@@ -127,9 +134,9 @@ class Scene extends Component {
             let patternWidth = scope.project.layers['Bounding Box'].bounds.width;
             let patternHeight = scope.project.layers['Bounding Box'].bounds.height;
 
-            const textureLayer = new scope.Layer();
-            textureLayer.name = 'Texture';
-            textureLayer.activate();
+            const textureSourceLayer = new scope.Layer();
+            textureSourceLayer.name = 'Texture Source';
+            textureSourceLayer.activate();
 
             // get all the items from the import that are paths
             let inputPaths = scope.project.importSVG(textureSVG, {insert:false}).getItems({class: "Path"});
@@ -141,7 +148,7 @@ class Scene extends Component {
             texture.addChildren(inputPaths);
             texture.fillColor = new scope.Color(0, .5, .2);
             texture.scale(scale,new scope.Point(0,0));
-            texture.name="source-texture";
+            // texture.name="source-texture";
 
             console.log(texture);
 
@@ -175,53 +182,113 @@ class Scene extends Component {
             let panelCount = scope.project.layers['Pattern Source Quadrilaterals'].children.length;
 
             for (let i = 0; i < panelCount; i++) {
-                console.time('Intersect '+i+' of '+panelCount);
-                let path1 = scope.project.layers['Pattern Source Quadrilaterals'].children[i].clone();
-                let result = textureArray.intersect(path1);
-                result.fillColor = new scope.Color(.5, .5, .5);
-                result.name = 'pattern-'+i;
-                console.timeEnd('Intersect '+i+' of '+panelCount);
-                path1.remove();
+                // console.time('Intersect '+i+' of '+panelCount);
+                
+                let texturePanel = textureArray.intersect(scope.project.layers['Pattern Source Quadrilaterals'].children[i]);
+                texturePanel.fillColor = new scope.Color(.5, .5, .5, .2);
+                texturePanel.name = 'pattern-'+i;
+
+                // console.timeEnd('Intersect '+i+' of '+panelCount);
+
+                // console.time('JSON E '+i+' of '+panelCount);
+                // let a = texturePanel.exportJSON();
+                // console.log(a);
+                // console.timeEnd('JSON E '+i+' of '+panelCount);
+
+                //https://github.com/facebook/create-react-app/issues/1277
+                // Worker initialisation
+                const workerInstance = new WebWorker(intersection);
+                // const workerInstanceWithParams = new WebWorker(new intersection("foo"));
+                // Communication with worker
+                workerInstance.addEventListener("message", result => {
+                    console.log(result.data);
+                }, false);
+                workerInstance.postMessage({
+                    clipRegion : scope.project.layers['Pattern Source Quadrilaterals'].children[i].exportJSON(),
+                    texture : textureArray.exportJSON(),
+                    name : 'pattern-'+i,
+                    color : [.5, .5, .5, .2]
+                });
+
+                let w = new Worker(process.env.PUBLIC_URL + "demo_worker.js");
+                w.addEventListener("message", result => {
+                    console.log(result.data);
+                }, false);
+                w.postMessage({
+                    clipRegion : scope.project.layers['Pattern Source Quadrilaterals'].children[i].exportJSON(),
+                    texture : textureArray.exportJSON(),
+                    name : 'pattern-'+i,
+                    color : [.5, .5, .5, .2]
+                });
+
+                
             }
             
             // don't need the source textureArray anymore
             textureArray.remove();
 
+            const textureDestLayer = new scope.Layer();
+            textureDestLayer.name = 'Texture Mapped';
+            textureDestLayer.activate();
 
+            for (let i = 0; i < panelCount; i++) {
 
-            for (let i = 0; i < 40; i++) {
-                //console.time('Intersect '+i+' of '+panelCount);
-                const pathSource = scope.project.layers['Pattern Source Quadrilaterals'].children[i].clone();
-                const pathDest = scope.project.layers['Pattern Destination Quadrilaterals'].children[i].clone();
-                //console.log(pathSource);
-                //console.log(pathDest);
+                // console.time('Mapping '+i+' of '+panelCount);
 
                 const srcCorners = [];
                 const dstCorners = [];
 
                 for (let j=0; j<4; j++) {
-                    srcCorners.push(pathSource.segments[j].point.x);
-                    srcCorners.push(pathSource.segments[j].point.y);
-                    dstCorners.push(pathDest.segments[j].point.x);
-                    dstCorners.push(pathDest.segments[j].point.y);
+                    srcCorners.push(scope.project.layers['Pattern Source Quadrilaterals'].children[i].segments[j].point.x);
+                    srcCorners.push(scope.project.layers['Pattern Source Quadrilaterals'].children[i].segments[j].point.y);
+                    dstCorners.push(scope.project.layers['Pattern Destination Quadrilaterals'].children[i].segments[j].point.x);
+                    dstCorners.push(scope.project.layers['Pattern Destination Quadrilaterals'].children[i].segments[j].point.y);
                 }
-
+                // console.log(srcCorners);
+                // console.log(dstCorners);
+                
                 const perspT = perspective(srcCorners, dstCorners);
 
-                let stretched = scope.project.layers['Pattern Source Quadrilaterals'].children[i].clone();//scope.project.activeLayer.children['pattern-'+i].clone();
-                stretched.fillColor = new scope.Color(.5, .5, 1);
+                // let stretched = scope.project.activeLayer.children['pattern-'+i].getItems({class: "Path"});
 
-                for (let j=0; j<stretched.segments.length; j++) {
-                    const tempX = stretched.segments[j].point.x;
-                    const tempY = stretched.segments[j].point.y;
-                    const dstPt = perspT.transform(tempX, tempY);
-                    stretched.segments[j].point.x = dstPt[0];
-                    stretched.segments[j].point.y = dstPt[1];
+
+
+                let paths = [];
+                // if (scope.project.activeLayer.children['pattern-'+i].className === "CompoundPath") {
+                if (textureSourceLayer.children['pattern-'+i].className === "CompoundPath") {
+                    // console.log("compound path");
+                    const pathList = textureSourceLayer.children['pattern-'+i].getItems({class: "Path"});
+                    pathList.forEach(function(element) {
+                        paths.push(element.clone());
+                    });
+                } else if (textureSourceLayer.children['pattern-'+i].className  === "Path") {
+                    // console.log("path");
+                    paths = [ textureSourceLayer.children['pattern-'+i].clone() ];
+                } else {
+                    console.error("Error - Not a valid path type for texture");
+                    console.error(textureSourceLayer.children['pattern-'+i]);
                 }
-                //console.log(scope.project.activeLayer.children['pattern-'+i]);
-
-                //console.timeEnd('Intersect '+i+' of '+panelCount);
                 
+
+                // console.log(paths);
+                // let stretched = scope.project.layers['Pattern Source Quadrilaterals'].children[i].clone();//scope.project.activeLayer.children['pattern-'+i].clone();
+                
+                let textureMapped = new scope.CompoundPath();
+
+                for (let p=0; p<paths.length; p++) {
+                    for (let j=0; j<paths[p].segments.length; j++) {
+                        const tempX = paths[p].segments[j].point.x;
+                        const tempY = paths[p].segments[j].point.y;
+                        const dstPt = perspT.transform(tempX, tempY);
+                        paths[p].segments[j].point.x = dstPt[0];
+                        paths[p].segments[j].point.y = dstPt[1];
+                    }
+                }
+                textureMapped.addChildren(paths);
+                textureMapped.fillColor = new scope.Color(.5, .5, 1, .8);
+                textureMapped.strokeColor = new scope.Color(0, 0, 0, .8); // remove stroke
+
+                // console.timeEnd('Mapping '+i+' of '+panelCount);
             }
 
             // reactivate the pattern layer for good measure

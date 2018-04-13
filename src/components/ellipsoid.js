@@ -92,8 +92,11 @@ export function computeGeometry(geometrySettings) {
   const a = geometrySettings.a;
   const b = geometrySettings.b;
   const c = geometrySettings.c;
-  const theta_min = geometrySettings.thetaMin * Math.PI / 180;
-  const theta_max = geometrySettings.thetaMax * Math.PI / 180;
+  // const theta_min = geometrySettings.thetaMin * Math.PI / 180;
+  const theta_min = (geometrySettings.thetaMin === -90) ? -89 * Math.PI / 180 : geometrySettings.thetaMin * Math.PI / 180;
+  // const theta_max = geometrySettings.thetaMax * Math.PI / 180;
+  const theta_max = (geometrySettings.thetaMax === 90) ? 89 * Math.PI / 180 : geometrySettings.thetaMin * Math.PI / 180;
+  
 
   // const htop = geometrySettings.hTop;
   const htop = (theta_max <= 0 && geometrySettings.hTop === 0) ? .0001 : geometrySettings.hTop;
@@ -238,9 +241,12 @@ export function computeGeometry(geometrySettings) {
 
 export function computePattern(geometry, geometrySettings, projection) {
 
-  const theta_min = geometrySettings.thetaMin * Math.PI / 180;
-  const theta_max = geometrySettings.thetaMax * Math.PI / 180;
-  const htop = (theta_max <= 0 && geometrySettings.hTop === 0) ? .0001 : geometrySettings.hTop;
+  // const theta_min = geometrySettings.thetaMin * Math.PI / 180;
+  const theta_min = (geometrySettings.thetaMin === -90) ? -89 * Math.PI / 180 : geometrySettings.thetaMin * Math.PI / 180;
+  // const theta_max = geometrySettings.thetaMax * Math.PI / 180;
+  const theta_max = (geometrySettings.thetaMax === 90) ? 89 * Math.PI / 180 : geometrySettings.thetaMin * Math.PI / 180;
+  
+  const htop = (theta_max <= 0 && geometrySettings.hTop === 0) ? 0.0001 : geometrySettings.hTop;
   const hbottom = geometrySettings.hBottom;
 
   const Divisions = geometry.Divisions;
@@ -651,9 +657,9 @@ export function drawPattern(geometrySettings, projectionSettings, pattern, scope
         strokeWidth: strokeWidth * 0.25
       })
       line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][0].x) * ppu, (shift.y - panelsFlat[indexp][indext][0].y) * ppu));
-      line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][1].x) * ppu, (shift.y - panelsFlat[indexp][indext][1].y) * ppu));
-      line.add(new scope.Point((shift.x + panelsFlat[indexp][indext+1][1].x) * ppu, (shift.y - panelsFlat[indexp][indext+1][1].y) * ppu));
       line.add(new scope.Point((shift.x + panelsFlat[indexp][indext+1][0].x) * ppu, (shift.y - panelsFlat[indexp][indext+1][0].y) * ppu));
+      line.add(new scope.Point((shift.x + panelsFlat[indexp][indext+1][1].x) * ppu, (shift.y - panelsFlat[indexp][indext+1][1].y) * ppu));
+      line.add(new scope.Point((shift.x + panelsFlat[indexp][indext][1].x) * ppu, (shift.y - panelsFlat[indexp][indext][1].y) * ppu));
       line.closed = true;
     }
   }
