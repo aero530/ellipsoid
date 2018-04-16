@@ -12,11 +12,21 @@ class Scene extends Component {
     constructor(props) {
         super(props)
         window.paper = new paper.PaperScope();
+        this.getUnits = this.getUnits.bind(this);
         this.handleTexture = this.handleTexture.bind(this);
         this.handleDownload = this.handleDownload.bind(this);
         this.handleUpdateGeometry = this.handleUpdateGeometry.bind(this);
         this.handleUpdatePattern = this.handleUpdatePattern.bind(this);
-        
+    }
+
+    getUnits(ppu) {
+        if (ppu === 96 || ppu === "96") {
+            return "in";
+        } else if (ppu === 3.7795276 || ppu === "3.7795276") {
+            return "mm";
+        } else if (ppu === 37.795276 || ppu === "37.795276") {
+            return "cm";
+        }
     }
 
     handleUpdateGeometry(data) {
@@ -39,16 +49,7 @@ class Scene extends Component {
         
         const link = document.createElement("a");
 
-        let units = "";
-
-        if (this.props.ppu === 96) {
-            units = "in";
-        } else if (this.props.ppu === 3.7795276) {
-            units = "mm";
-        } else if (this.props.ppu === 37.795276) {
-            units = "cm";
-        }
-
+        let units = this.getUnits(this.props.ppu);
         const filename = "ellipsoid_a" + this.props.a + units +
             "_b" + this.props.b + units +
             "_c" + this.props.c + units +
@@ -73,6 +74,9 @@ class Scene extends Component {
 
         drawPattern(this.props.geometrySettings, this.props.projectionSettings, pattern, scope);
 
+        scope.project.layers['Pattern Source Quadrilaterals'].visible = false;
+        scope.project.layers['Pattern Destination Quadrilaterals'].visible = false;
+
         // Get the size of the 'Bounding Box' layer and use it to set the size of the image
         let imgWidth = scope.project.layers['Bounding Box'].bounds.width;
         let imgHeight = scope.project.layers['Bounding Box'].bounds.height;
@@ -87,43 +91,77 @@ class Scene extends Component {
        // scope.view.viewSize = new scope.Size(imgWidth*zoom,imgHeight*zoom);
         scope.view.center = scope.project.activeLayer.bounds.center;
 
-        console.log(scope);
-        // var firstLayer = new scope.Layer();
-        // firstLayer.name = 'Layer ABC';
-        // firstLayer.activate();
+        // if there is enough of a gap around the image, put some notes there
+        if (this.props.imageOffset >= 0.5) {          
+            var notesLayer = new scope.Layer();
+            notesLayer.name = 'Notes';
+            notesLayer.activate();
 
-        // var path = new scope.Path();
-		// // Give the stroke a color
-		// path.strokeColor = new scope.Color(this.props.color[0]/255, this.props.color[1]/255, this.props.color[2]/255);
-		// var start = new scope.Point(0, 0);
-		// // Move to start and draw a line from there
-		// path.moveTo(start);
-		// // Note that the plus operator on Point objects does not work
-		// // in JavaScript. Instead, we need to call the add() function:
-        // path.lineTo(start.add([ 200, 500 ]));
-        
-        // var secondLayer = new scope.Layer();
-        // secondLayer.name = 'Layer 559';
-        // secondLayer.activate();
+            console.log(this.props.ppu);
 
-        // var circle = new scope.Shape.Circle(new scope.Point(50,75), 30);
-        // circle.strokeColor = "#333333";
-        // circle.fillColor = "#0084B0";
+            let units = this.getUnits(this.props.ppu);
 
-        // firstLayer.activate();
-        // var ellipse = new scope.Shape.Ellipse(new scope.Point(20,100), new scope.Size(100, 20));
-        // ellipse.fillColor = new scope.Color(this.props.color[0]/255, this.props.color[1]/255, this.props.color[2]/255);
+            const filename = "ellipsoid_a" + this.props.a + units +
+                "_b" + this.props.b + units +
+                "_c" + this.props.c + units +
+                ".svg";
 
+            let textFilename = new scope.PointText({
+                    point: [0, 0],
+                    content: filename,
+                    fillColor: 'black',
+                    fontFamily: 'Roboto',
+                    fontSize: 0.25*this.props.ppu
+                });
+                
+                textFilename.rotate(-90, textFilename.bounds.bottomRight);
+                textFilename.position.x = 0.15*this.props.ppu;
+                textFilename.position.y = scope.project.layers['Bounding Box'].bounds.height - textFilename.bounds.height/2 - 0.15*this.props.ppu;
+
+            new scope.PointText({
+                point: [0.1*this.props.ppu, .15*this.props.ppu],
+                content: JSON.stringify(this.props.geometrySettings),
+                fillColor: 'black',
+                fontFamily: 'Courier New',
+                fontSize: 0.2*this.props.ppu
+            });
+
+            // Draw a ruler on the bottom of the pattern based on the units specified
+
+            var path = new scope.Path();
+            // Give the stroke a color
+            path.strokeColor = new scope.Color(.7,.3,.5);
+            path.strokeWidth = 0.01*this.props.ppu;
+            // var start = new scope.Point(0.1*this.props.ppu, scope.project.layers['Bounding Box'].bounds.height);
+            var start = new scope.Point(scope.project.layers['Ellipsoid Pattern'].bounds.x, scope.project.layers['Bounding Box'].bounds.height);
+            // Move to start and draw a line from there
+            path.moveTo(start);
+            // Note that the plus operator on Point objects does not work
+            // in JavaScript. Instead, we need to call the add() function:
+            path.lineTo(start.add([ 0, -0.3*this.props.ppu ]));
+
+            for (var i = 0; i < scope.project.layers['Ellipsoid Pattern'].bounds.width / this.props.ppu; i++) {
+                var copy = path.clone();
+                // Distribute the copies horizontally, so we can see them:
+                copy.position.x += i * this.props.geometrySettings.ppu;
+                new scope.PointText({
+                    point: copy.position,
+                    content: i+units,
+                    fillColor: 'black',
+                    fontFamily: 'Roboto',
+                    fontSize: 0.2*this.props.ppu
+                });
+            }
+        }
     }
 
     handleTexture() {
         const textureSVG = this.props.texture;
-        const scale = 3;
+        const scale = .5
 
         const scope = window.paper;
 
         if (textureSVG !== "") {
-            console.log("start texture stuff");
             const patternLayer = scope.project.layers['Ellipsoid Pattern'];
 
             let patternWidth = scope.project.layers['Bounding Box'].bounds.width;
@@ -142,18 +180,21 @@ class Scene extends Component {
 
             // copy all the imported paths to the compound path and set its color, name, and scale
             texture.addChildren(inputPaths);
+            
             texture.fillColor = new scope.Color(0, .5, .2);
             texture.scale(scale,new scope.Point(0,0));
+            texture.position = new scope.Point(scope.project.layers['Bounding Box'].bounds.center.x - texture.bounds.width/2, scope.project.layers['Bounding Box'].bounds.center.y - texture.bounds.height/2);
+            console.log(texture);
 
             let countX = patternWidth/texture.bounds.width;
             let countY = patternHeight/texture.bounds.height;
             
             // create a new compound path for the arrayed texture
             let textureArray = new scope.CompoundPath();
-            console.log("create array");
+
             // array (clone) the texture path to cover the entire pattern
-            for (let i = 0; i < countX; i++) {
-                for (let j = 0; j< countY; j++) {
+            for (let i = -Math.ceil(countX/2); i < Math.ceil(countX/2)+1; i++) {
+                for (let j = -Math.ceil(countY/2); j< Math.ceil(countY/2)+1; j++) {
                     let copy = texture.clone();
                     // Shift copy to new location
                     copy.position.x += i * copy.bounds.width;
@@ -164,20 +205,19 @@ class Scene extends Component {
                 }  
             }
             textureArray.fillColor = new scope.Color(1, 0, 0);
+            console.log(textureArray);
    
             // don't need the source texture input anymore
             texture.remove();
 
-            console.log("create promises");
             // Intersect the textureArray compound path with each source qualrilateral
             let panelCount = scope.project.layers['Pattern Source Quadrilaterals'].children.length;
-
-            console.log(panelCount + " Panels");
             
             for (let i = 0; i < panelCount; i++) {
                 let texturePanel = textureArray.intersect(scope.project.layers['Pattern Source Quadrilaterals'].children[i]);
                 texturePanel.fillColor = new scope.Color(.5, .5, .5, .2);
                 texturePanel.name = 'texture-'+i;
+                console.log(texturePanel);
             }
 
             // don't need the source textureArray anymore
@@ -230,11 +270,11 @@ class Scene extends Component {
                 }
                 textureMapped.addChildren(paths);
                 textureMapped.fillColor = new scope.Color(.5, .5, 1, 0);
-                textureMapped.strokeColor = new scope.Color(1, 0, 0, 1); // remove stroke
-                
+                console.log(textureMapped);    
                 paths = [];
 
             }
+            
             textureSourceLayer.remove();
 
             // reactivate the pattern layer for good measure
@@ -248,8 +288,11 @@ class Scene extends Component {
     render() {
         return (
             <div>
-            <canvas id="paper" width={900} height={900} />
+            {//<button onClick={this.handleTexture}>Texturize</button>
+            }
             <button onClick={this.handleDownload}>Download</button>
+            <br />
+            <canvas id="paper" width={900} height={900} />
             </div>
         )
     }
@@ -262,7 +305,7 @@ class Scene extends Component {
         this.handleUpdatePattern(pattern);
 
         this.handleDrawPattern(pattern);
-        this.handleTexture();
+        //this.handleTexture();
     }
 
     componentDidMount() {
@@ -273,7 +316,7 @@ class Scene extends Component {
         this.handleUpdatePattern(pattern);
 
         this.handleDrawPattern(pattern);
-        this.handleTexture();
+        //this.handleTexture();
     }
 }
 
@@ -287,6 +330,7 @@ function mapStateToProps(state) {
       b: state.form.EllipsoidInput.values.b.toFixed(2).toString(),
       c: state.form.EllipsoidInput.values.c.toFixed(2).toString(),
       ppu: state.form.EllipsoidInput.values.ppu,
+      imageOffset: state.form.ProjectionInput.values.imageOffset.toFixed(2),
       texture: state.file
     }
   }

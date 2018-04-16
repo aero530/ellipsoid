@@ -95,7 +95,7 @@ export function computeGeometry(geometrySettings) {
   // const theta_min = geometrySettings.thetaMin * Math.PI / 180;
   const theta_min = (geometrySettings.thetaMin === -90) ? -89 * Math.PI / 180 : geometrySettings.thetaMin * Math.PI / 180;
   // const theta_max = geometrySettings.thetaMax * Math.PI / 180;
-  const theta_max = (geometrySettings.thetaMax === 90) ? 89 * Math.PI / 180 : geometrySettings.thetaMin * Math.PI / 180;
+  const theta_max = (geometrySettings.thetaMax === 90) ? 89 * Math.PI / 180 : geometrySettings.thetaMax * Math.PI / 180;
   
 
   // const htop = geometrySettings.hTop;
@@ -507,6 +507,7 @@ export function drawPattern(geometrySettings, projectionSettings, pattern, scope
 
   var boundingRect = new scope.Shape.Rectangle(new scope.Point(0, 0), new scope.Point(image.width, image.height));
   boundingRect.strokeColor = "#333333";
+  boundingRect.strokeWidth = 0.01*ppu;
   boundingRect.fillColor = new scope.Color(1, 0, 0.5, 0);
 
   patternLayer.activate();
@@ -745,7 +746,6 @@ export function drawPattern(geometrySettings, projectionSettings, pattern, scope
       line.closed = true;
     }
   }
-
 
   patternLayer.activate();
 
