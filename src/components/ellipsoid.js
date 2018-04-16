@@ -99,9 +99,9 @@ export function computeGeometry(geometrySettings) {
   
 
   // const htop = geometrySettings.hTop;
-  const htop = (theta_max <= 0 && geometrySettings.hTop === 0) ? .0001 : geometrySettings.hTop;
+  const htop = (theta_max <= 0 && geometrySettings.hTop === 0) ? .001 : geometrySettings.hTop;
   // hMiddle can't be zero if cylindrical projection is used so make it an insubstantially small number instead
-  const hmiddle = geometrySettings.hMiddle === 0 ? .0001 : geometrySettings.hMiddle; 
+  const hmiddle = geometrySettings.hMiddle === 0 ? .001 : geometrySettings.hMiddle; 
   const hbottom = geometrySettings.hBottom;
   const htopfraction = geometrySettings.hTopFraction;
   const htopshift = geometrySettings.hTopShift;
@@ -743,7 +743,6 @@ export function drawPattern(geometrySettings, projectionSettings, pattern, scope
       line.add(averagePoints(P3a,P3b));
       line.add(averagePoints(P4a,P4b));
       line.closed = true;
-      
     }
   }
 

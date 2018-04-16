@@ -70,6 +70,7 @@ function drawVisualization(panels, elementid) {
 
   // create our graph
   const container = document.getElementById(elementid);
+  // eslint-disable-next-line
   var graph = new vis.Graph3d(container, data, options);
 }
 
