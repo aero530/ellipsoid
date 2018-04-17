@@ -1,5 +1,3 @@
-//import * as vis from 'vis';
-
 import cloneDeep from 'lodash.clonedeep';
 import { angleBetweenPlanes, pointToString, rotatePoint, distance} from './geometryHelpers';
 
@@ -664,8 +662,6 @@ export function drawPattern(geometrySettings, projectionSettings, pattern, scope
       line.closed = true;
     }
   }
-
-
   
   // -----------------------------------------------------------------------------
   // draw source pattern quadrilaterals
@@ -746,8 +742,75 @@ export function drawPattern(geometrySettings, projectionSettings, pattern, scope
       line.closed = true;
     }
   }
-
   patternLayer.activate();
-
 }
 
+export function drawNotes(scope, props) {
+  var notesLayer = new scope.Layer();
+  notesLayer.name = 'Notes';
+  notesLayer.activate();
+
+  let units = getUnits(props.ppu);
+
+  const filename = "ellipsoid_a" + props.a + units +
+      "_b" + props.b + units +
+      "_c" + props.c + units +
+      ".svg";
+
+  let textFilename = new scope.PointText({
+          point: [0, 0],
+          content: filename,
+          fillColor: 'black',
+          fontFamily: 'Roboto',
+          fontSize: 0.25*props.ppu
+      });
+      
+      textFilename.rotate(-90, textFilename.bounds.bottomRight);
+      textFilename.position.x = 0.15*props.ppu;
+      textFilename.position.y = scope.project.layers['Bounding Box'].bounds.height - textFilename.bounds.height/2 - 0.15*props.ppu;
+
+  new scope.PointText({
+      point: [0.1*props.ppu, .15*props.ppu],
+      content: JSON.stringify(props.geometrySettings),
+      fillColor: 'black',
+      fontFamily: 'Courier New',
+      fontSize: 0.2*props.ppu
+  });
+
+  // Draw a ruler on the bottom of the pattern based on the units specified
+
+  var path = new scope.Path();
+  // Give the stroke a color
+  path.strokeColor = new scope.Color(.7,.3,.5);
+  path.strokeWidth = 0.01*props.ppu;
+  // var start = new scope.Point(0.1*props.ppu, scope.project.layers['Bounding Box'].bounds.height);
+  var start = new scope.Point(scope.project.layers['Ellipsoid Pattern'].bounds.x, scope.project.layers['Bounding Box'].bounds.height);
+  // Move to start and draw a line from there
+  path.moveTo(start);
+  // Note that the plus operator on Point objects does not work
+  // in JavaScript. Instead, we need to call the add() function:
+  path.lineTo(start.add([ 0, -0.3*props.ppu ]));
+
+  for (var i = 0; i < scope.project.layers['Ellipsoid Pattern'].bounds.width / props.ppu; i++) {
+      var copy = path.clone();
+      // Distribute the copies horizontally, so we can see them:
+      copy.position.x += i * props.geometrySettings.ppu;
+      new scope.PointText({
+          point: copy.position,
+          content: i+units,
+          fillColor: 'black',
+          fontFamily: 'Roboto',
+          fontSize: 0.2*props.ppu
+      });
+  }
+}
+
+export function getUnits(ppu) {
+  if (ppu === 96 || ppu === "96") {
+      return "in";
+  } else if (ppu === 3.7795276 || ppu === "3.7795276") {
+      return "mm";
+  } else if (ppu === 37.795276 || ppu === "37.795276") {
+      return "cm";
+  }
+}

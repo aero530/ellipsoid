@@ -14,8 +14,7 @@ class App extends Component {
     return (
       <div className="App container">
         <InputForm />
-        {//<DropZone />
-        }
+        {/*<DropZone />*/}
         <Scene />
         <View3D geometry="panels" size="400px"/>
         <View3D geometry="panelsFlat" size="400px"/>

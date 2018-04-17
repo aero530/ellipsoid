@@ -1,5 +1,4 @@
-import { UPDATEGEOMETRY } from '../actions/types';
-import { UPDATEPATTERN } from '../actions/types';
+import { UPDATEGEOMETRY, UPDATEPATTERN } from '../actions/types';
 
 export default function(state={}, action) {
   switch (action.type) {
