@@ -2,7 +2,7 @@ import fileImport from './file';
 import {updateGeometry, updatePattern} from './shape';
 
 export {
-    updateGeometry,
-    updatePattern,
-    fileImport
+  updateGeometry,
+  updatePattern,
+  fileImport
 };

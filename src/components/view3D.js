@@ -75,26 +75,24 @@ function drawVisualization(panels, elementid) {
 }
 
 class View3D extends Component {
+  render() {
+    return (
+      <div id={this.props.id} style={{width:this.props.size, height:this.props.size}}/>
+    );
+  }
 
-    render() {
-        return (
-            <div id={this.props.id} style={{width:this.props.size, height:this.props.size}}/>
-        );
-    }
-
-    componentDidUpdate() {
-        drawVisualization(this.props.shape, this.props.id)
-    }
-
+  componentDidUpdate() {
+    drawVisualization(this.props.shape, this.props.id)
+  }
 }
 
 //connects root reducer to props
 function mapStateToProps(state, ownprops) {
-    return {
-        id: ownprops.geometry,
-        size: ownprops.size,
-        shape: state.shape[ownprops.geometry]
-    }
+  return {
+    id: ownprops.geometry,
+    size: ownprops.size,
+    shape: state.shape[ownprops.geometry]
+  }
 }
   
 export default connect(mapStateToProps, null)(View3D);

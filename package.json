@@ -13,7 +13,7 @@
     "react-dropzone": "^4.2.9",
     "react-native-workers": "^0.3.1",
     "react-redux": "^5.0.7",
-    "react-scripts": "1.1.1",
+    "react-scripts": "^1.1.5",
     "redux": "^3.7.2",
     "redux-form": "^7.3.0",
     "vis": "^4.21.0"
@@ -23,5 +23,12 @@
     "build": "react-scripts build",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject"
+  },
+  "devDependencies": {
+    "eslint": "^5.5.0",
+    "eslint-config-airbnb": "^17.1.0",
+    "eslint-plugin-import": "^2.14.0",
+    "eslint-plugin-jsx-a11y": "^6.1.1",
+    "eslint-plugin-react": "^7.11.1"
   }
 }

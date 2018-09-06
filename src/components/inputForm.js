@@ -7,8 +7,8 @@ class InputForm extends React.Component {
   render() {
     return (
       <div>
-      <EllipsoidInput />
-      <ProjectionInput />
+        <EllipsoidInput />
+        <ProjectionInput />
       </div>
     );
   }
