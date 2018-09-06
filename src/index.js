@@ -5,9 +5,12 @@ import { Provider } from 'react-redux';
 import App from './components/App';
 import store from './store';
 
+
+/* eslint-disable react/jsx-filename-extension */
 render(
   <Provider store={store}>
     <App />
   </Provider>,
-  document.getElementById('root')
+  document.getElementById('root'),
 );
+/* eslint-enable */

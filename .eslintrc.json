@@ -6,7 +6,16 @@
   },
   "rules": {
       "linebreak-style": ["error", "windows"],
+      "no-underscore-dangle": ["off"],
       "no-console": ["off"],
       "max-len": ["error", {"code": 500}]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["*.js"],
+      "rules": {
+        "react/jsx-filename-extension": "off"
+      }
+    }
+  ]
 }

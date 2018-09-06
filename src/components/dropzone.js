@@ -6,7 +6,7 @@ import Dropzone from 'react-dropzone';
 import {fileImport} from '../actions'; // FILEIMPORT
 
 class DropZone extends Component {
-      
+
   handleImportFile(acceptedFiles) {
     let file = acceptedFiles[0];
     let reader  = new FileReader();

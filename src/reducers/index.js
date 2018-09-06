@@ -6,7 +6,7 @@ import fileReducer from './file';
 const rootReducer = combineReducers({
   form: formReducer,
   shape: geometryReducer,
-  file: fileReducer
+  file: fileReducer,
 });
 
 export default rootReducer;
