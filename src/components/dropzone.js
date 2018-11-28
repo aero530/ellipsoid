@@ -1,19 +1,18 @@
 import React, { Component } from 'react';
-import {connect} from 'react-redux';
-import {bindActionCreators} from 'redux';
+import { connect } from 'react-redux';
+import { bindActionCreators } from 'redux';
 import Dropzone from 'react-dropzone';
 
-import {fileImport} from '../actions'; // FILEIMPORT
+import { fileImport } from '../actions'; // FILEIMPORT
 
 class DropZone extends Component {
-
   handleImportFile(acceptedFiles) {
-    let file = acceptedFiles[0];
-    let reader  = new FileReader();
-    reader.onload = function(event) {
-      let output = reader.result;
+    const file = acceptedFiles[0];
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      const output = reader.result;
       this.props.fileImport(output);
-    }.bind(this)
+    }.bind(this);
     reader.readAsText(file);
   }
 
@@ -21,8 +20,8 @@ class DropZone extends Component {
     return (
       <div className="dropzone">
         <Dropzone accept="image/svg+xml" onDrop={this.handleImportFile.bind(this)}>
-        <p>Try dropping some files here, or click to select files to upload.</p>
-        <p>Only *.svg images will be accepted</p>
+          <p>Try dropping some files here, or click to select files to upload.</p>
+          <p>Only *.svg images will be accepted</p>
         </Dropzone>
       </div>
     );
@@ -32,7 +31,7 @@ class DropZone extends Component {
 //connects redux actions to props
 function mapDispatchToProps(dispatch) {
   return bindActionCreators({
-    fileImport: fileImport
+    fileImport: fileImport,
   }, dispatch);
 }
 

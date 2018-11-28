@@ -6,7 +6,7 @@ export function processTexture(textureSVG, scale, scope) {
   // const scale = .5
   // const scope = window.paper;
 
-  if (textureSVG !== "") {
+  if (textureSVG !== '') {
     const patternLayer = scope.project.layers['Ellipsoid Pattern'];
 
     let patternWidth = scope.project.layers['Bounding Box'].bounds.width;
