@@ -18,4 +18,5 @@ Generate an Inkscape SVG flat pattern of a general ellipsoid.  Initially develop
 * Flatten ellipsoid spherically (from the top) or cylindrically (from the front)
 * Preview flat pattern prior to saving file
 * Visualize ellipsoid and flat pattern in 3D
-* Add dart lines to output image for folding / glueing alignment
+* Output image includes dart lines for folding / glueing alignment
+* Output image includes ruler to verify scale when printing
