@@ -1,8 +1,10 @@
 # Ellipsoid Pattern Generator
 
-Generate an Inkscape SVG flat pattern of a general ellipsoid.  Initially developed to generate flat patterns for laser cutting helmets from foam.
+Generate an SVG flat pattern of a general ellipsoid.  Initially developed to generate flat patterns for laser cutting helmets from foam.
 
 ---
+
+![screenshot_001](https://github.com/aero530/ellipsoid/raw/master/screenshots/screenshot_001.png "screenshot")
 
 ![sample_output](https://github.com/aero530/ellipsoid/raw/master/screenshots/ellipsoid_a3.75in_b2.88in_c3.00in.png "sample_output")
 
@@ -20,6 +22,7 @@ Generate an Inkscape SVG flat pattern of a general ellipsoid.  Initially develop
 * Visualize ellipsoid and flat pattern in 3D
 * Output image includes dart lines for folding / glueing alignment
 * Output image includes ruler to verify scale when printing
+* Support for Inkscape layers
 
 
 ## Development Setup
