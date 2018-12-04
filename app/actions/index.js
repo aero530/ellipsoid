@@ -1,0 +1,3 @@
+export const UPDATE_INPUT = 'UPDATE_INPUT';
+export const UPDATE_GEOMETRY = 'UPDATE_GEOMETRY';
+export const UPDATE_PANELS = 'UPDATE_PANELS';

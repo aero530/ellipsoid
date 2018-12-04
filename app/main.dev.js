@@ -8,7 +8,6 @@
  * When running `yarn build` or `yarn build-main`, this file is compiled to
  * `./app/main.prod.js` using webpack. This gives us some performance wins.
  *
- * @flow
  */
 import { app, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
@@ -69,9 +68,11 @@ app.on('ready', async () => {
 
   mainWindow = new BrowserWindow({
     show: false,
-    width: 1024,
-    height: 728
+    width: 1920,
+    height: 1080
   });
+
+  mainWindow.maximize();
 
   mainWindow.loadURL(`file://${__dirname}/app.html`);
 
