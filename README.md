@@ -8,6 +8,8 @@ Generate an SVG flat pattern of a general ellipsoid.  Initially developed to gen
 
 ![sample_output](https://github.com/aero530/ellipsoid/raw/master/screenshots/ellipsoid_a3.75in_b2.88in_c3.00in.png "sample_output")
 
+![sample_output_spherical](https://github.com/aero530/ellipsoid/raw/master/screenshots/ellipsoid_a3.75in_b2.88in_c3.00in_spherical.png "sample_output_spherical")
+
 ---
 
 ## Features
