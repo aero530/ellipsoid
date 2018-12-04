@@ -26,6 +26,9 @@ Generate an SVG flat pattern of a general ellipsoid.  Initially developed to gen
 * Output image includes ruler to verify scale when printing
 * Support for Inkscape layers
 
+## Installation
+
+Download the program installation file for the current release [here](https://github.com/aero530/ellipsoid/releases).
 
 ## Development Setup
 
