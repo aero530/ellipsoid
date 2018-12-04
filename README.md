@@ -4,7 +4,7 @@ Generate an SVG flat pattern of a general ellipsoid.  Initially developed to gen
 
 ---
 
-![screenshot_001](https://github.com/aero530/ellipsoid/raw/master/screenshots/screenshot_001.png "screenshot")
+![screenshot_001](https://raw.githubusercontent.com/aero530/ellipsoid/master/screenshots/screenshot_001.PNG "screenshot")
 
 ![sample_output](https://github.com/aero530/ellipsoid/raw/master/screenshots/ellipsoid_a3.75in_b2.88in_c3.00in.png "sample_output")
 
