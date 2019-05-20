@@ -229,11 +229,45 @@ export function computeGeometry(geometrySettings) {
   console.debug('Ellipsoid');
   console.debug(ellipsoid);
 
+  // --------------------------------------------------------------------------
+  // Generate OBJ ascii
+  // --------------------------------------------------------------------------
+
+  let object3D = '';
+  // create verticies
+  for (let indexP = 0; indexP <= Divisions; indexP += 1) { // the last phi division is a duplicate of the first (for edges)
+    for (let indexT = 0; indexT <= divisions; indexT += 1) {
+      object3D += `v ${ellipsoid[indexP][indexT].x} ${ellipsoid[indexP][indexT].y} ${ellipsoid[indexP][indexT].z} \n`;
+    }
+  }
+  object3D += `s off \n`;
+  // create faces
+  
+  // for (let indexP = 0; indexP < Divisions; indexP += 1) {
+  //   for (let indexT = 0; indexT < divisions; indexT += 1) {
+  for (let indexP = 1; indexP <= Divisions; indexP += 1) {
+    for (let indexT = 1; indexT <= divisions; indexT += 1) {
+      object3D += `# ${indexP} ${indexT} \n`;
+      let vertexA = 1;
+      let vertexB = 1;
+      let vertexC = 1;
+      let vertexD = 1;
+      vertexA = indexT + (indexP-1)*divisions + (indexP-1);
+      vertexB = vertexA+1;
+      vertexC = vertexB+(divisions+1);
+      vertexD = vertexC-1;
+      object3D += `f ${vertexA} ${vertexB} ${vertexC} ${vertexD} \n`;
+    }
+  }
+console.log(object3D);
+
+
   return {
     geometry: ellipsoid,
     indexWide,
     divisions,
     Divisions,
+    obj: object3D,
   };
 }
 
