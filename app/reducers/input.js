@@ -17,7 +17,7 @@ const initialState = {
   imageOffset: 0.5, // in
   minGap: 0.001, // in
   projection: 'cylindrical', // circular or cylindrical
-  inkscapeLayers: true, // circular or cylindrical
+  inkscapeLayers: true, // include inkscape style layers in output svg file
 };
 
 export default function (state = initialState, action) {

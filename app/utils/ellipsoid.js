@@ -27,7 +27,7 @@ function averagePoints(point1, point2) {
   return point1.add(point2).divide(2);
 }
 
-function panelExtents(array) {
+function edgeGeometryExtents(array) {
   const arrayMax = {
     x: Number.NEGATIVE_INFINITY,
     y: Number.NEGATIVE_INFINITY,
@@ -237,7 +237,7 @@ export function computeGeometry(geometrySettings) {
   };
 }
 
-export function computePanels(geometry, settings) {
+export function computeFlatGeometry(geometry, settings) {
   // const theta_min = geometrySettings.thetaMin * Math.PI / 180;
   const thetaMin = (settings.thetaMin === -90) ? -89 * Math.PI / 180 : settings.thetaMin * Math.PI / 180;
   // const theta_max = geometrySettings.thetaMax * Math.PI / 180;
@@ -255,36 +255,36 @@ export function computePanels(geometry, settings) {
 
   // step through all thetas starting as the top of the ellipsoid (theta closest to pi/2)
   // at each height (theta) loop through all
-  const panels = [];
+  const edgeGeometry = [];
   for (let indexP = 0; indexP < Divisions; indexP += 1) {
-    // length of phi is 1 larger than number of panels
-    panels[indexP] = [];
+    // length of phi is 1 larger than number of edges
+    edgeGeometry[indexP] = [];
     for (let indexT = 0; indexT <= divisions; indexT += 1) {
-      panels[indexP][indexT] = [
+      edgeGeometry[indexP][indexT] = [
         ellipsoid[indexP][indexT],
-        ellipsoid[indexP + 1][indexT],
+        ellipsoid[indexP + 1][indexT], // the phi direction is around the circumference of the ellipsoid (cut by horizontal plane)
       ];
     }
   }
 
-  console.debug('Panels');
-  console.debug(panels);
+  console.debug('Edge Geometry');
+  console.debug(edgeGeometry);
 
-  const [panelsMin, panelsMax] = panelExtents(panels);
+  const [edgeGeometryMin, edgeGeometryMax] = edgeGeometryExtents(edgeGeometry);
 
   console.debug(`Divisions ${Divisions} divisions ${divisions}`);
-  console.debug(`Max z : ${panelsMax.z} Min z : ${panelsMin.z}`);
+  console.debug(`Max z : ${edgeGeometryMax.z} Min z : ${edgeGeometryMin.z}`);
 
-  // step through all the panels and flatten them
+  // step through all the edges and flatten them
   // Flatten panel strips one at a time.  For each panel strip, loop through all the angles (theta)
   // starting at the bottom of the half-ellipsoid (theta = 0) and moving up toward theta=pi/2.
   // At each theta calculate the angle between the current panel and the one above it (wrt z axis).
   // Rotate each point in the panel including and below the current panel by the found angle between planes.
 
   // --------------------------------------------------------------------------
-  // Flatten the panels
+  // Flatten the edges
   // --------------------------------------------------------------------------
-  const panelsFlat = cloneDeep(panels);
+  const edgesFlat = cloneDeep(edgeGeometry);
 
   switch (settings.projection) {
     case 'spherical':
@@ -297,11 +297,11 @@ export function computePanels(geometry, settings) {
           const topPoint = (indexT === divisions - 1) ? {
             x: 0,
             y: 0,
-            z: panelsMax.z,
-          } : panelsFlat[indexP][indexT + 2][1];
+            z: edgeGeometryMax.z,
+          } : edgesFlat[indexP][indexT + 2][1];
 
           // find angle of rotation.  this is the difference in angle from the prev panel to the current panel
-          let rotationAngle = angleBetweenPlanes(panelsFlat[indexP][indexT + 1][0], panelsFlat[indexP][indexT + 1][1], panelsFlat[indexP][indexT][0], topPoint);
+          let rotationAngle = angleBetweenPlanes(edgesFlat[indexP][indexT + 1][0], edgesFlat[indexP][indexT + 1][1], edgesFlat[indexP][indexT][0], topPoint);
 
           if (htop > 0 && indexT === divisions - 2 && thetaMax > 0) {
             rotationAngle = -rotationAngle;
@@ -320,8 +320,8 @@ export function computePanels(geometry, settings) {
           // This has the effect of uncurling the panel strip a small amount each time we move up the side of the ellipsoid
           // Both points that define each panel edge get rotated (hense the [0] and [1] lines that are otherwise identical)
           for (let indexTR = 0; indexTR <= indexT; indexTR += 1) {
-            panelsFlat[indexP][indexTR][0] = rotatePoint(panelsFlat[indexP][indexT + 1][1], panelsFlat[indexP][indexT + 1][0], panelsFlat[indexP][indexTR][0], rotationAngle);
-            panelsFlat[indexP][indexTR][1] = rotatePoint(panelsFlat[indexP][indexT + 1][1], panelsFlat[indexP][indexT + 1][0], panelsFlat[indexP][indexTR][1], rotationAngle);
+            edgesFlat[indexP][indexTR][0] = rotatePoint(edgesFlat[indexP][indexT + 1][1], edgesFlat[indexP][indexT + 1][0], edgesFlat[indexP][indexTR][0], rotationAngle);
+            edgesFlat[indexP][indexTR][1] = rotatePoint(edgesFlat[indexP][indexT + 1][1], edgesFlat[indexP][indexT + 1][0], edgesFlat[indexP][indexTR][1], rotationAngle);
           }
         }
       }
@@ -341,11 +341,11 @@ export function computePanels(geometry, settings) {
           const topPoint = (indexT === divisions - 1) ? {
             x: 0,
             y: 0,
-            z: panelsMax.z,
-          } : panels[indexP][indexT + 2][1];
+            z: edgeGeometryMax.z,
+          } : edgeGeometry[indexP][indexT + 2][1];
 
           // find angle of rotation.  this is the difference in angle from the prev panel to the current panel
-          let rotationAngle = angleBetweenPlanes(panels[indexP][indexT + 1][0], panels[indexP][indexT + 1][1], panels[indexP][indexT][0], topPoint);
+          let rotationAngle = angleBetweenPlanes(edgeGeometry[indexP][indexT + 1][0], edgeGeometry[indexP][indexT + 1][1], edgeGeometry[indexP][indexT][0], topPoint);
 
           if (htop > 0 && indexT === divisions && thetaMax > 0) {
             rotationAngle = -rotationAngle;
@@ -361,18 +361,18 @@ export function computePanels(geometry, settings) {
           // This has the effect of uncurling the panel strip a small amount each time we move up the side of the ellipsoid
           // Both points that define each panel edge get rotated (hense the [0] and [1] lines that are otherwise identical)
           for (let indexTR = 0; indexTR <= indexT; indexTR += 1) {
-            panelsFlat[indexP][indexTR][0] = rotatePoint(panels[indexP][indexT + 1][1], panels[indexP][indexT + 1][0], panelsFlat[indexP][indexTR][0], rotationAngle);
-            panelsFlat[indexP][indexTR][1] = rotatePoint(panels[indexP][indexT + 1][1], panels[indexP][indexT + 1][0], panelsFlat[indexP][indexTR][1], rotationAngle);
+            edgesFlat[indexP][indexTR][0] = rotatePoint(edgeGeometry[indexP][indexT + 1][1], edgeGeometry[indexP][indexT + 1][0], edgesFlat[indexP][indexTR][0], rotationAngle);
+            edgesFlat[indexP][indexTR][1] = rotatePoint(edgeGeometry[indexP][indexT + 1][1], edgeGeometry[indexP][indexT + 1][0], edgesFlat[indexP][indexTR][1], rotationAngle);
           }
         }
 
         for (let indexT = divisions; indexT > indexWide + 1; indexT -= 1) {
           // get the point above the rotation line to use to find the angles
           // when we get to the top of the ellipsoid hard code the location
-          const bottomPoint = panels[indexP][indexT - 2][0];
+          const bottomPoint = edgeGeometry[indexP][indexT - 2][0];
 
           // find angle of rotation.  this is the difference in angle from the prev panel to the current panel
-          let rotationAngle = angleBetweenPlanes(panels[indexP][indexT - 1][0], panels[indexP][indexT - 1][1], bottomPoint, panels[indexP][indexT][0]);
+          let rotationAngle = angleBetweenPlanes(edgeGeometry[indexP][indexT - 1][0], edgeGeometry[indexP][indexT - 1][1], bottomPoint, edgeGeometry[indexP][indexT][0]);
 
           if (htop > 0 && indexT === divisions && thetaMax > 0) {
             rotationAngle = -rotationAngle;
@@ -385,8 +385,8 @@ export function computePanels(geometry, settings) {
           // This has the effect of uncurling the panel strip a small amount each time we move up the side of the ellipsoid
           // Both points that define each panel edge get rotated (hense the [0] and [1] lines that are otherwise identical)
           for (let indexTR = divisions; indexTR >= indexT; indexTR -= 1) {
-            panelsFlat[indexP][indexTR][0] = rotatePoint(panels[indexP][indexT - 1][0], panels[indexP][indexT - 1][1], panelsFlat[indexP][indexTR][0], rotationAngle);
-            panelsFlat[indexP][indexTR][1] = rotatePoint(panels[indexP][indexT - 1][0], panels[indexP][indexT - 1][1], panelsFlat[indexP][indexTR][1], rotationAngle);
+            edgesFlat[indexP][indexTR][0] = rotatePoint(edgeGeometry[indexP][indexT - 1][0], edgeGeometry[indexP][indexT - 1][1], edgesFlat[indexP][indexTR][0], rotationAngle);
+            edgesFlat[indexP][indexTR][1] = rotatePoint(edgeGeometry[indexP][indexT - 1][0], edgeGeometry[indexP][indexT - 1][1], edgesFlat[indexP][indexTR][1], rotationAngle);
           }
         }
       }
@@ -396,7 +396,7 @@ export function computePanels(geometry, settings) {
         const prevPanel = (indexP === 0) ? (Divisions - 1) : (indexP - 1);
 
         // find angle of rotation.  this is the difference in angle from the prev panel to the current panel
-        let rotationAngle = angleBetweenPlanes(panelsFlat[indexP][indexWide][0], panelsFlat[indexP][indexWide + 1][0], panelsFlat[indexP][indexWide][1], panelsFlat[prevPanel][indexWide][0]);
+        let rotationAngle = angleBetweenPlanes(edgesFlat[indexP][indexWide][0], edgesFlat[indexP][indexWide + 1][0], edgesFlat[indexP][indexWide][1], edgesFlat[prevPanel][indexWide][0]);
         if (indexP === 0) {
           // since phi always starts at 0 we know that we need to rotate half the angle betwee the planes on the first panel.
           // this moves the flattened pattern points to a plane along the min x value (where phi=0)
@@ -405,8 +405,8 @@ export function computePanels(geometry, settings) {
 
         for (let indexPR = indexP; indexPR < Divisions; indexPR += 1) {
           for (let indexT = 0; indexT <= divisions; indexT += 1) {
-            panelsFlat[indexPR][indexT][0] = rotatePoint(panelsFlat[indexP][indexWide + 1][0], panelsFlat[indexP][indexWide][0], panelsFlat[indexPR][indexT][0], rotationAngle);
-            panelsFlat[indexPR][indexT][1] = rotatePoint(panelsFlat[indexP][indexWide + 1][0], panelsFlat[indexP][indexWide][0], panelsFlat[indexPR][indexT][1], rotationAngle);
+            edgesFlat[indexPR][indexT][0] = rotatePoint(edgesFlat[indexP][indexWide + 1][0], edgesFlat[indexP][indexWide][0], edgesFlat[indexPR][indexT][0], rotationAngle);
+            edgesFlat[indexPR][indexT][1] = rotatePoint(edgesFlat[indexP][indexWide + 1][0], edgesFlat[indexP][indexWide][0], edgesFlat[indexPR][indexT][1], rotationAngle);
           }
         }
       }
@@ -416,16 +416,16 @@ export function computePanels(geometry, settings) {
       console.error('ERROR - Projection Type');
   }
 
-  console.debug('Panels Flattened');
-  console.debug(panelsFlat);
+  console.debug('Edges Flattened');
+  console.debug(edgesFlat);
 
 
   switch (settings.projection) {
     case 'spherical':
-      return { panelsFlat, panels, indexWide };
+      return { edgesFlat: edgesFlat, edges: edgeGeometry, indexWide };
     case 'cylindrical':
-      // reorder the points of the flattened panels to be in the x/y domain
-      const output = Array.from(panelsFlat, val1 =>
+      // reorder the points of the flattened edges to be in the x/y domain
+      const output = Array.from(edgesFlat, val1 =>
         Array.from(val1, val2 =>
           Array.from(val2, (val3) => {
             return {
@@ -434,30 +434,30 @@ export function computePanels(geometry, settings) {
               z: val3.x,
             };
           })));
-      return { panelsFlat: output, panels, indexWide };
+      return { edgesFlat: output, edges: edgeGeometry, indexWide };
     default:
       console.error('ERROR - Projection Type');
   }
 }
 
-export function drawPanels(geometrySettings, pattern, scope) {
+export function drawEdges(geometrySettings, pattern, scope) {
   const { projection } = geometrySettings;
   const { ppu } = geometrySettings;
   const htop = geometrySettings.hTop;
   const minGap = geometrySettings.minGap;
   const { imageOffset } = geometrySettings;
 
-  const panelsFlat = cloneDeep(pattern.panelsFlat);
+  const edgesFlat = cloneDeep(pattern.edgesFlat);
 
   const { indexWide } = pattern;
-  const Divisions = pattern.panelsFlat.length;
-  const divisions = pattern.panelsFlat[0].length - 1;
+  const Divisions = pattern.edgesFlat.length;
+  const divisions = pattern.edgesFlat[0].length - 1;
 
   // calculate a bounding box around the flattened pattern
 
-  const [panelsFlatMin, panelsFlatMax] = panelExtents(panelsFlat);
+  const [edgesFlatMin, edgesFlatMax] = edgeGeometryExtents(edgesFlat);
 
-  console.debug(`Flat Pattern Bounding Box ${pointToString(panelsFlatMin)} ${pointToString(panelsFlatMax)}`);
+  console.debug(`Flat Pattern Bounding Box ${pointToString(edgesFlatMin)} ${pointToString(edgesFlatMax)}`);
 
   const image = {
     width: 0,
@@ -470,17 +470,17 @@ export function drawPanels(geometrySettings, pattern, scope) {
     y: 0,
   };
 
-  image.width = (panelsFlatMax.x - panelsFlatMin.x + 2 * imageOffset) * ppu;
-  image.height = (panelsFlatMax.y - panelsFlatMin.y + 2 * imageOffset) * ppu;
+  image.width = (edgesFlatMax.x - edgesFlatMin.x + 2 * imageOffset) * ppu;
+  image.height = (edgesFlatMax.y - edgesFlatMin.y + 2 * imageOffset) * ppu;
 
   switch (projection) {
     case 'spherical':
-      shift.x = (panelsFlatMax.x - panelsFlatMin.x) / 2 + imageOffset;
-      shift.y = (panelsFlatMax.y - panelsFlatMin.y) / 2 + imageOffset;
+      shift.x = (edgesFlatMax.x - edgesFlatMin.x) / 2 + imageOffset;
+      shift.y = (edgesFlatMax.y - edgesFlatMin.y) / 2 + imageOffset;
       break;
     case 'cylindrical':
-      shift.x = Math.abs(panelsFlatMin.x) + imageOffset;
-      shift.y = imageOffset + panelsFlatMax.y;
+      shift.x = Math.abs(edgesFlatMin.x) + imageOffset;
+      shift.y = imageOffset + edgesFlatMax.y;
       break;
     default:
       console.error('ERROR - Projection Type');
@@ -503,33 +503,33 @@ export function drawPanels(geometrySettings, pattern, scope) {
   // -----------------------------------------------------------------------------
   // assemble ordered points array for the flat pattern
   // -----------------------------------------------------------------------------
-  // Loop through all the panels.  For each panel draw the ending edge of the previous panel then
+  // Loop through all the edges.  For each panel draw the ending edge of the previous panel then
   // the starting edge of the current panel.  This ensures the cutouts are drawn as the outlines as
-  // opposed to drawing the panels themselves.
+  // opposed to drawing the edges themselves.
   const pointsFull = [];
 
   switch (projection) {
     case 'spherical':
       for (let indexP = 0; indexP < Divisions; indexP += 1) {
-        // Figure out the index for the previous and the next panels.  This is used to enforce mingap
+        // Figure out the index for the previous and the next edges.  This is used to enforce mingap
         const idxPhiPrev = (indexP - 1 < 0) ? Divisions - 1 : indexP - 1;
 
         for (let indexT = 0; indexT <= divisions; indexT += 1) {
           if (htop > 0 && indexT === divisions) {
             // the mingap check fails if there is added height to the ellipsoid on top so a special case is needed
-            pointsFull.push([shift.x + panelsFlat[idxPhiPrev][indexT][1].x, shift.y + panelsFlat[idxPhiPrev][indexT][1].y]);
-          } else if (distance(panelsFlat[idxPhiPrev][indexT][1], panelsFlat[indexP][indexT][0]) > minGap) {
+            pointsFull.push([shift.x + edgesFlat[idxPhiPrev][indexT][1].x, shift.y + edgesFlat[idxPhiPrev][indexT][1].y]);
+          } else if (distance(edgesFlat[idxPhiPrev][indexT][1], edgesFlat[indexP][indexT][0]) > minGap) {
             // Enforce minimum gap
-            pointsFull.push([shift.x + panelsFlat[idxPhiPrev][indexT][1].x, shift.y + panelsFlat[idxPhiPrev][indexT][1].y]);
+            pointsFull.push([shift.x + edgesFlat[idxPhiPrev][indexT][1].x, shift.y + edgesFlat[idxPhiPrev][indexT][1].y]);
           }
         }
         for (let indexT = divisions; indexT >= 0; indexT -= 1) {
           if (htop > 0 && indexT === divisions) {
             // the mingap check fails if there is added height to the ellipsoid on top so a special case is needed
-            pointsFull.push([shift.x + panelsFlat[indexP][indexT][0].x, shift.y + panelsFlat[indexP][indexT][0].y]);
-          } else if (distance(panelsFlat[idxPhiPrev][indexT][1], panelsFlat[indexP][indexT][0]) > minGap) {
+            pointsFull.push([shift.x + edgesFlat[indexP][indexT][0].x, shift.y + edgesFlat[indexP][indexT][0].y]);
+          } else if (distance(edgesFlat[idxPhiPrev][indexT][1], edgesFlat[indexP][indexT][0]) > minGap) {
             // Enforce minimum gap
-            pointsFull.push([shift.x + panelsFlat[indexP][indexT][0].x, shift.y + panelsFlat[indexP][indexT][0].y]);
+            pointsFull.push([shift.x + edgesFlat[indexP][indexT][0].x, shift.y + edgesFlat[indexP][indexT][0].y]);
           }
         }
       }
@@ -543,18 +543,18 @@ export function drawPanels(geometrySettings, pattern, scope) {
         const idxPhiNext = indexP + 1 === Divisions ? 0 : indexP + 1;
 
         for (let indexT = indexWide; indexT >= 0; indexT -= 1) {
-          if (distance(panelsFlat[idxPhiPrev][indexT][1], panelsFlat[indexP][indexT][0]) > minGap) {
+          if (distance(edgesFlat[idxPhiPrev][indexT][1], edgesFlat[indexP][indexT][0]) > minGap) {
             // Enforce minimum gap
-            pointsFull.push([shift.x + panelsFlat[indexP][indexT][0].x, shift.y - panelsFlat[indexP][indexT][0].y]);
-            // s.text((shift.x + panelsFlat[indexP][indexT][0].y)*ppu, (shift.y + panelsFlatMax.z-panelsFlat[indexP][indexT][0].z)*ppu,"b "+indexP+" "+indexT+" "+count).attr({'fill' : 'green',  'stroke': 'green'});
+            pointsFull.push([shift.x + edgesFlat[indexP][indexT][0].x, shift.y - edgesFlat[indexP][indexT][0].y]);
+            // s.text((shift.x + edgesFlat[indexP][indexT][0].y)*ppu, (shift.y + edgesFlatMax.z-edgesFlat[indexP][indexT][0].z)*ppu,"b "+indexP+" "+indexT+" "+count).attr({'fill' : 'green',  'stroke': 'green'});
             // count += 1;
           }
         }
         for (let indexT = 0; indexT <= indexWide; indexT += 1) {
-          if (distance(panelsFlat[idxPhiNext][indexT][0], panelsFlat[indexP][indexT][1]) > minGap) {
+          if (distance(edgesFlat[idxPhiNext][indexT][0], edgesFlat[indexP][indexT][1]) > minGap) {
             // Enforce minimum gap
-            pointsFull.push([shift.x + panelsFlat[indexP][indexT][1].x, shift.y - panelsFlat[indexP][indexT][1].y]);
-            // s.text((shift.x + panelsFlat[indexP][indexT][1].y)*ppu, (shift.y + panelsFlatMax.z-panelsFlat[indexP][indexT][1].z)*ppu,"d "+indexP+" "+indexT+" "+count).attr({'fill' : 'yellow',  'stroke': 'yellow'});
+            pointsFull.push([shift.x + edgesFlat[indexP][indexT][1].x, shift.y - edgesFlat[indexP][indexT][1].y]);
+            // s.text((shift.x + edgesFlat[indexP][indexT][1].y)*ppu, (shift.y + edgesFlatMax.z-edgesFlat[indexP][indexT][1].z)*ppu,"d "+indexP+" "+indexT+" "+count).attr({'fill' : 'yellow',  'stroke': 'yellow'});
             // count += 1;
           }
         }
@@ -564,18 +564,18 @@ export function drawPanels(geometrySettings, pattern, scope) {
         const idxPhiNext = indexP === 0 ? Divisions - 1 : indexP - 1;
 
         for (let indexT = indexWide; indexT <= divisions; indexT += 1) {
-          if (distance(panelsFlat[idxPhiPrev][indexT][0], panelsFlat[indexP][indexT][1]) > minGap) {
+          if (distance(edgesFlat[idxPhiPrev][indexT][0], edgesFlat[indexP][indexT][1]) > minGap) {
             // Enforce minimum gap
-            pointsFull.push([shift.x + panelsFlat[indexP][indexT][1].x, shift.y - panelsFlat[indexP][indexT][1].y]);
-            // s.text((shift.x + panelsFlat[indexP][indexT][1].y)*ppu, (shift.y + panelsFlatMax.z-panelsFlat[indexP][indexT][1].z)*ppu,"f "+indexP+" "+indexT+" "+count).attr({'fill' : 'pink',  'stroke': 'pink'});
+            pointsFull.push([shift.x + edgesFlat[indexP][indexT][1].x, shift.y - edgesFlat[indexP][indexT][1].y]);
+            // s.text((shift.x + edgesFlat[indexP][indexT][1].y)*ppu, (shift.y + edgesFlatMax.z-edgesFlat[indexP][indexT][1].z)*ppu,"f "+indexP+" "+indexT+" "+count).attr({'fill' : 'pink',  'stroke': 'pink'});
             // count += 1;
           }
         }
         for (let indexT = divisions; indexT > indexWide; indexT -= 1) {
-          if (distance(panelsFlat[idxPhiNext][indexT][1], panelsFlat[indexP][indexT][0]) > minGap) {
+          if (distance(edgesFlat[idxPhiNext][indexT][1], edgesFlat[indexP][indexT][0]) > minGap) {
             // Enforce minimum gap
-            pointsFull.push([shift.x + panelsFlat[indexP][indexT][0].x, shift.y - panelsFlat[indexP][indexT][0].y]);
-            // s.text((shift.x + panelsFlat[indexP][indexT][0].y)*ppu, (shift.y + panelsFlatMax.z-panelsFlat[indexP][indexT][0].z)*ppu,"h "+indexP+" "+indexT+" "+count).attr({'fill' : 'orange',  'stroke': 'orange'});
+            pointsFull.push([shift.x + edgesFlat[indexP][indexT][0].x, shift.y - edgesFlat[indexP][indexT][0].y]);
+            // s.text((shift.x + edgesFlat[indexP][indexT][0].y)*ppu, (shift.y + edgesFlatMax.z-edgesFlat[indexP][indexT][0].z)*ppu,"h "+indexP+" "+indexT+" "+count).attr({'fill' : 'orange',  'stroke': 'orange'});
             // count += 1;
           }
         }
@@ -624,8 +624,8 @@ export function drawPanels(geometrySettings, pattern, scope) {
         strokeColor: new scope.Color(0, 1, 0),
         strokeWidth: strokeWidth * 0.25,
       });
-      line.add(new scope.Point((shift.x + panelsFlat[indexP][indexT][0].x) * ppu, (shift.y - panelsFlat[indexP][indexT][0].y) * ppu));
-      line.add(new scope.Point((shift.x + panelsFlat[indexP][indexT][1].x) * ppu, (shift.y - panelsFlat[indexP][indexT][1].y) * ppu));
+      line.add(new scope.Point((shift.x + edgesFlat[indexP][indexT][0].x) * ppu, (shift.y - edgesFlat[indexP][indexT][0].y) * ppu));
+      line.add(new scope.Point((shift.x + edgesFlat[indexP][indexT][1].x) * ppu, (shift.y - edgesFlat[indexP][indexT][1].y) * ppu));
       group.addChild(line);
     }
   }
@@ -634,7 +634,7 @@ export function drawPanels(geometrySettings, pattern, scope) {
   // draw pattern clip quadrilaterals
   // -----------------------------------------------------------------------------
   const quadLayer = new scope.Layer();
-  quadLayer.name = 'Panels Destination Quadrilaterals';
+  quadLayer.name = 'Edges Destination Quadrilaterals';
   quadLayer.activate();
   for (let indexP = 0; indexP < Divisions; indexP += 1) {
     for (let indexT = 0; indexT < divisions; indexT += 1) {
@@ -642,10 +642,10 @@ export function drawPanels(geometrySettings, pattern, scope) {
         strokeColor: new scope.Color(1, 0, 0),
         strokeWidth: strokeWidth * 0.25,
       });
-      line.add(new scope.Point((shift.x + panelsFlat[indexP][indexT][0].x) * ppu, (shift.y - panelsFlat[indexP][indexT][0].y) * ppu));
-      line.add(new scope.Point((shift.x + panelsFlat[indexP][indexT + 1][0].x) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][0].y) * ppu));
-      line.add(new scope.Point((shift.x + panelsFlat[indexP][indexT + 1][1].x) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][1].y) * ppu));
-      line.add(new scope.Point((shift.x + panelsFlat[indexP][indexT][1].x) * ppu, (shift.y - panelsFlat[indexP][indexT][1].y) * ppu));
+      line.add(new scope.Point((shift.x + edgesFlat[indexP][indexT][0].x) * ppu, (shift.y - edgesFlat[indexP][indexT][0].y) * ppu));
+      line.add(new scope.Point((shift.x + edgesFlat[indexP][indexT + 1][0].x) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][0].y) * ppu));
+      line.add(new scope.Point((shift.x + edgesFlat[indexP][indexT + 1][1].x) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][1].y) * ppu));
+      line.add(new scope.Point((shift.x + edgesFlat[indexP][indexT][1].x) * ppu, (shift.y - edgesFlat[indexP][indexT][1].y) * ppu));
       line.closed = true;
     }
   }
@@ -654,11 +654,11 @@ export function drawPanels(geometrySettings, pattern, scope) {
   // draw source pattern quadrilaterals
   // -----------------------------------------------------------------------------
   const quadSourceLayer = new scope.Layer();
-  quadSourceLayer.name = 'Panels Source Quadrilaterals';
+  quadSourceLayer.name = 'Edges Source Quadrilaterals';
   quadSourceLayer.activate();
 
-  const leftX = panelsFlat[0][indexWide][0].x;
-  const rightX = panelsFlat[Divisions - 1][indexWide][1].x;
+  const leftX = edgesFlat[0][indexWide][0].x;
+  const rightX = edgesFlat[Divisions - 1][indexWide][1].x;
 
   for (let indexP = 0; indexP < Divisions; indexP += 1) {
     for (let indexT = 0; indexT < divisions; indexT += 1) {
@@ -676,49 +676,49 @@ export function drawPanels(geometrySettings, pattern, scope) {
       const P4a = new scope.Point();
       const P4b = new scope.Point();
 
-      // Since the first and last panels (Divisions) connect to eachother and are always symmetrical, the pattern mapping along
+      // Since the first and last edges (Divisions) connect to eachother and are always symmetrical, the pattern mapping along
       // the left and right edges will be a vertical line.  The if block below enforces that symmetry.
       if (indexP === 0) {
         if (projection === 'spherical') {
-          P1a.set((shift.x + panelsFlat[indexP][indexT][0].x) * ppu, (shift.y - panelsFlat[indexP][indexT][0].y) * ppu);
-          P1b.set((shift.x + panelsFlat[Divisions - 1][indexT][1].x) * ppu, (shift.y - panelsFlat[Divisions - 1][indexT][1].y) * ppu);
-          P2a.set((shift.x + panelsFlat[indexP][indexT + 1][0].x) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][0].y) * ppu);
-          P2b.set((shift.x + panelsFlat[Divisions - 1][indexT + 1][1].x) * ppu, (shift.y - panelsFlat[Divisions - 1][indexT + 1][1].y) * ppu);
+          P1a.set((shift.x + edgesFlat[indexP][indexT][0].x) * ppu, (shift.y - edgesFlat[indexP][indexT][0].y) * ppu);
+          P1b.set((shift.x + edgesFlat[Divisions - 1][indexT][1].x) * ppu, (shift.y - edgesFlat[Divisions - 1][indexT][1].y) * ppu);
+          P2a.set((shift.x + edgesFlat[indexP][indexT + 1][0].x) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][0].y) * ppu);
+          P2b.set((shift.x + edgesFlat[Divisions - 1][indexT + 1][1].x) * ppu, (shift.y - edgesFlat[Divisions - 1][indexT + 1][1].y) * ppu);
         } else {
-          P1a.set((shift.x + leftX) * ppu, (shift.y - panelsFlat[indexP][indexT][0].y) * ppu);
-          P1b.set((shift.x + leftX) * ppu, (shift.y - panelsFlat[indexP][indexT][0].y) * ppu);
-          P2a.set((shift.x + leftX) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][0].y) * ppu);
-          P2b.set((shift.x + leftX) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][0].y) * ppu);
+          P1a.set((shift.x + leftX) * ppu, (shift.y - edgesFlat[indexP][indexT][0].y) * ppu);
+          P1b.set((shift.x + leftX) * ppu, (shift.y - edgesFlat[indexP][indexT][0].y) * ppu);
+          P2a.set((shift.x + leftX) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][0].y) * ppu);
+          P2b.set((shift.x + leftX) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][0].y) * ppu);
         }
-        P3a.set((shift.x + panelsFlat[indexP][indexT + 1][1].x) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][1].y) * ppu);
-        P3b.set((shift.x + panelsFlat[indexP + 1][indexT + 1][0].x) * ppu, (shift.y - panelsFlat[indexP + 1][indexT + 1][0].y) * ppu);
-        P4a.set((shift.x + panelsFlat[indexP][indexT][1].x) * ppu, (shift.y - panelsFlat[indexP][indexT][1].y) * ppu);
-        P4b.set((shift.x + panelsFlat[indexP + 1][indexT][0].x) * ppu, (shift.y - panelsFlat[indexP + 1][indexT][0].y) * ppu);
+        P3a.set((shift.x + edgesFlat[indexP][indexT + 1][1].x) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][1].y) * ppu);
+        P3b.set((shift.x + edgesFlat[indexP + 1][indexT + 1][0].x) * ppu, (shift.y - edgesFlat[indexP + 1][indexT + 1][0].y) * ppu);
+        P4a.set((shift.x + edgesFlat[indexP][indexT][1].x) * ppu, (shift.y - edgesFlat[indexP][indexT][1].y) * ppu);
+        P4b.set((shift.x + edgesFlat[indexP + 1][indexT][0].x) * ppu, (shift.y - edgesFlat[indexP + 1][indexT][0].y) * ppu);
       } else if (indexP === Divisions - 1) {
-        P1a.set((shift.x + panelsFlat[indexP][indexT][0].x) * ppu, (shift.y - panelsFlat[indexP][indexT][0].y) * ppu);
-        P1b.set((shift.x + panelsFlat[indexP - 1][indexT][1].x) * ppu, (shift.y - panelsFlat[indexP - 1][indexT][1].y) * ppu);
-        P2a.set((shift.x + panelsFlat[indexP][indexT + 1][0].x) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][0].y) * ppu);
-        P2b.set((shift.x + panelsFlat[indexP - 1][indexT + 1][1].x) * ppu, (shift.y - panelsFlat[indexP - 1][indexT + 1][1].y) * ppu);
+        P1a.set((shift.x + edgesFlat[indexP][indexT][0].x) * ppu, (shift.y - edgesFlat[indexP][indexT][0].y) * ppu);
+        P1b.set((shift.x + edgesFlat[indexP - 1][indexT][1].x) * ppu, (shift.y - edgesFlat[indexP - 1][indexT][1].y) * ppu);
+        P2a.set((shift.x + edgesFlat[indexP][indexT + 1][0].x) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][0].y) * ppu);
+        P2b.set((shift.x + edgesFlat[indexP - 1][indexT + 1][1].x) * ppu, (shift.y - edgesFlat[indexP - 1][indexT + 1][1].y) * ppu);
         if (projection === 'spherical') {
-          P3a.set((shift.x + panelsFlat[indexP][indexT + 1][1].x) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][1].y) * ppu);
-          P3b.set((shift.x + panelsFlat[0][indexT + 1][0].x) * ppu, (shift.y - panelsFlat[0][indexT + 1][0].y) * ppu);
-          P4a.set((shift.x + panelsFlat[indexP][indexT][1].x) * ppu, (shift.y - panelsFlat[indexP][indexT][1].y) * ppu);
-          P4b.set((shift.x + panelsFlat[0][indexT][0].x) * ppu, (shift.y - panelsFlat[0][indexT][0].y) * ppu);
+          P3a.set((shift.x + edgesFlat[indexP][indexT + 1][1].x) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][1].y) * ppu);
+          P3b.set((shift.x + edgesFlat[0][indexT + 1][0].x) * ppu, (shift.y - edgesFlat[0][indexT + 1][0].y) * ppu);
+          P4a.set((shift.x + edgesFlat[indexP][indexT][1].x) * ppu, (shift.y - edgesFlat[indexP][indexT][1].y) * ppu);
+          P4b.set((shift.x + edgesFlat[0][indexT][0].x) * ppu, (shift.y - edgesFlat[0][indexT][0].y) * ppu);
         } else {
-          P3a.set((shift.x + rightX) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][1].y) * ppu);
-          P3b.set((shift.x + rightX) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][1].y) * ppu);
-          P4a.set((shift.x + rightX) * ppu, (shift.y - panelsFlat[indexP][indexT][1].y) * ppu);
-          P4b.set((shift.x + rightX) * ppu, (shift.y - panelsFlat[indexP][indexT][1].y) * ppu);
+          P3a.set((shift.x + rightX) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][1].y) * ppu);
+          P3b.set((shift.x + rightX) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][1].y) * ppu);
+          P4a.set((shift.x + rightX) * ppu, (shift.y - edgesFlat[indexP][indexT][1].y) * ppu);
+          P4b.set((shift.x + rightX) * ppu, (shift.y - edgesFlat[indexP][indexT][1].y) * ppu);
         }
       } else {
-        P1a.set((shift.x + panelsFlat[indexP][indexT][0].x) * ppu, (shift.y - panelsFlat[indexP][indexT][0].y) * ppu);
-        P1b.set((shift.x + panelsFlat[indexP - 1][indexT][1].x) * ppu, (shift.y - panelsFlat[indexP - 1][indexT][1].y) * ppu);
-        P2a.set((shift.x + panelsFlat[indexP][indexT + 1][0].x) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][0].y) * ppu);
-        P2b.set((shift.x + panelsFlat[indexP - 1][indexT + 1][1].x) * ppu, (shift.y - panelsFlat[indexP - 1][indexT + 1][1].y) * ppu);
-        P3a.set((shift.x + panelsFlat[indexP][indexT + 1][1].x) * ppu, (shift.y - panelsFlat[indexP][indexT + 1][1].y) * ppu);
-        P3b.set((shift.x + panelsFlat[indexP + 1][indexT + 1][0].x) * ppu, (shift.y - panelsFlat[indexP + 1][indexT + 1][0].y) * ppu);
-        P4a.set((shift.x + panelsFlat[indexP][indexT][1].x) * ppu, (shift.y - panelsFlat[indexP][indexT][1].y) * ppu);
-        P4b.set((shift.x + panelsFlat[indexP + 1][indexT][0].x) * ppu, (shift.y - panelsFlat[indexP + 1][indexT][0].y) * ppu);
+        P1a.set((shift.x + edgesFlat[indexP][indexT][0].x) * ppu, (shift.y - edgesFlat[indexP][indexT][0].y) * ppu);
+        P1b.set((shift.x + edgesFlat[indexP - 1][indexT][1].x) * ppu, (shift.y - edgesFlat[indexP - 1][indexT][1].y) * ppu);
+        P2a.set((shift.x + edgesFlat[indexP][indexT + 1][0].x) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][0].y) * ppu);
+        P2b.set((shift.x + edgesFlat[indexP - 1][indexT + 1][1].x) * ppu, (shift.y - edgesFlat[indexP - 1][indexT + 1][1].y) * ppu);
+        P3a.set((shift.x + edgesFlat[indexP][indexT + 1][1].x) * ppu, (shift.y - edgesFlat[indexP][indexT + 1][1].y) * ppu);
+        P3b.set((shift.x + edgesFlat[indexP + 1][indexT + 1][0].x) * ppu, (shift.y - edgesFlat[indexP + 1][indexT + 1][0].y) * ppu);
+        P4a.set((shift.x + edgesFlat[indexP][indexT][1].x) * ppu, (shift.y - edgesFlat[indexP][indexT][1].y) * ppu);
+        P4b.set((shift.x + edgesFlat[indexP + 1][indexT][0].x) * ppu, (shift.y - edgesFlat[indexP + 1][indexT][0].y) * ppu);
       }
 
       line.add(averagePoints(P1a, P1b));

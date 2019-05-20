@@ -7,13 +7,13 @@ import * as paper from 'paper';
 import ReactResizeDetector  from 'react-resize-detector';
 import {
   computeGeometry,
-  computePanels,
-  drawPanels,
+  computeFlatGeometry,
+  drawEdges,
   drawNotes,
   getUnits,
 } from '../utils/ellipsoid';
 
-import { UPDATE_GEOMETRY, UPDATE_PANELS } from '../actions';
+import { UPDATE_GEOMETRY, UPDATE_EDGES } from '../actions';
 
 const styles = theme => ({
   root: {
@@ -33,7 +33,7 @@ class Scene extends Component {
 
     this.handleDownload = this.handleDownload.bind(this);
     this.handleUpdateGeometry = this.handleUpdateGeometry.bind(this);
-    this.handleUpdatePanels = this.handleUpdatePanels.bind(this);
+    this.handleUpdateEdges = this.handleUpdateEdges.bind(this);
   }
 
   componentDidMount() {
@@ -41,9 +41,9 @@ class Scene extends Component {
     const geometry = computeGeometry(input);
     this.handleUpdateGeometry(geometry);
 
-    const panels = computePanels(geometry, input);
-    this.handleUpdatePanels(panels);
-    this.handleDrawPanels(panels);
+    const edges = computeFlatGeometry(geometry, input);
+    this.handleUpdateEdges(edges);
+    this.handleDrawEdges(edges);
   }
 
   componentDidUpdate() {
@@ -51,10 +51,10 @@ class Scene extends Component {
     const geometry = computeGeometry(input);
     this.handleUpdateGeometry(geometry);
 
-    const panels = computePanels(geometry, input);
-    this.handleUpdatePanels(panels);
+    const edges = computeFlatGeometry(geometry, input);
+    this.handleUpdateEdges(edges);
 
-    this.handleDrawPanels(panels);
+    this.handleDrawEdges(edges);
   }
 
   // handleTexture() {
@@ -67,18 +67,18 @@ class Scene extends Component {
     const geometry = computeGeometry(input);
     this.handleUpdateGeometry(geometry);
 
-    const panels = computePanels(geometry, input);
-    this.handleUpdatePanels(panels);
+    const edges = computeFlatGeometry(geometry, input);
+    this.handleUpdateEdges(edges);
 
-    this.handleDrawPanels(panels);
+    this.handleDrawEdges(edges);
   }
 
   handleUpdateGeometry(data) {
     this.props.updateGeometry(data);
   }
 
-  handleUpdatePanels(data) {
-    this.props.updatePanels(data);
+  handleUpdateEdges(data) {
+    this.props.updateEdges(data);
   }
 
   handleDownload() {
@@ -111,7 +111,7 @@ class Scene extends Component {
     link.click();
   }
 
-  handleDrawPanels(panels) {
+  handleDrawEdges(edges) {
     const { imageOffset, input } = this.props;
     const scope = window.paper;
 
@@ -122,12 +122,12 @@ class Scene extends Component {
       scope.setup(document.getElementById('paper')); // setup the project
     }
 
-    const panelsLayer = scope.project.activeLayer;
-    panelsLayer.name = 'Ellipsoid Pattern';
+    const edgesLayer = scope.project.activeLayer;
+    edgesLayer.name = 'Ellipsoid Pattern';
 
-    drawPanels(input, panels, scope);
-    scope.project.layers['Panels Destination Quadrilaterals'].remove();
-    scope.project.layers['Panels Source Quadrilaterals'].remove();
+    drawEdges(input, edges, scope);
+    scope.project.layers['Edges Destination Quadrilaterals'].remove();
+    scope.project.layers['Edges Source Quadrilaterals'].remove();
 
     // Get the size of the 'Bounding Box' layer and use it to set the size of the image
     const imgWidth = scope.project.layers['Bounding Box'].bounds.width;
@@ -180,7 +180,7 @@ const mapStateToProps = state => ({
 // connects redux actions to props
 const mapDispatchToProps = dispatch => ({
   updateGeometry: (input) => dispatch({ type: UPDATE_GEOMETRY, value: input }),
-  updatePanels: (input) => dispatch({ type: UPDATE_PANELS, value: input }),
+  updateEdges: (input) => dispatch({ type: UPDATE_EDGES, value: input }),
 });
 
 export default compose(

@@ -1,14 +1,14 @@
-import { UPDATE_PANELS } from '../actions';
+import { UPDATE_EDGES } from '../actions';
 
 const initialState = {
-  panelsFlat: [],
-  panels: [],
+  edgesFlat: [],
+  edges: [],
   indexWide: 0,
 };
 
 export default function (state = initialState, action) {
   switch (action.type) {
-    case UPDATE_PANELS:
+    case UPDATE_EDGES:
       return {
         ...state,
         ...action.value,

@@ -2,8 +2,8 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import * as vis from 'vis';
 
-function drawVisualization(panels, elementid) {
-  // Function to generate 3D plot of panels
+function drawVisualization(edges, elementid) {
+  // Function to generate 3D plot of edges
 
   // create the data table.
   const data = new vis.DataSet();
@@ -15,7 +15,7 @@ function drawVisualization(panels, elementid) {
   let minZ = 0;
 
   // create the animation data
-  panels.forEach((slice, idx0) => {
+  edges.forEach((slice, idx0) => {
     slice.forEach((line) => {
       if (Math.abs(line[0].x) > maxX) {
         maxX = Math.abs(line[0].x);
@@ -91,7 +91,7 @@ class View3D extends Component {
 // connects root reducer to props
 function mapStateToProps(state, ownprops) {
   return {
-    shape: state.panels[ownprops.id],
+    shape: state.edges[ownprops.id],
   };
 }
 

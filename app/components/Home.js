@@ -67,7 +67,7 @@ class Home extends Component {
               </Typography>
               <ReactResizeDetector handleWidth handleHeight onResize={this.onResize}>
                 {(width) => {
-                  return(<View3D id="panels" size={`${width}px`} />);
+                  return(<View3D id="edges" size={`${width}px`} />);
                 }}
               </ReactResizeDetector>
             </Paper>
@@ -80,7 +80,7 @@ class Home extends Component {
               </Typography>
               <ReactResizeDetector handleWidth handleHeight onResize={this.onResize}>
                 {(width) => {
-                  return(<View3D id="panelsFlat" size={`${width}px`} />);
+                  return(<View3D id="edgesFlat" size={`${width}px`} />);
                 }}
               </ReactResizeDetector>
             </Paper>
