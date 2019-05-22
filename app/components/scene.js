@@ -53,8 +53,8 @@ class Scene extends Component {
 
     const edges = computeFlatGeometry(geometry, input);
     this.handleUpdateEdges(edges);
-
     this.handleDrawEdges(edges);
+    
   }
 
   // handleTexture() {
@@ -152,7 +152,7 @@ class Scene extends Component {
   render() {
     return (
       <div>
-        <button type="submit" onClick={this.handleDownload}>Download</button>
+        <button type="submit" onClick={this.handleDownload}>Download SVG</button>
           <br />
           <ReactResizeDetector handleWidth handleHeight onResize={this.onResize}>
             {(width) => {

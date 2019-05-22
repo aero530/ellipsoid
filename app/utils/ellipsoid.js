@@ -94,21 +94,30 @@ export function computeGeometry(geometrySettings) {
   // z = c sin(theta)
   // -pi/2 <= theta <= pi/2 (use 0 to pi/2 to get the top half)
   // -pi <= phi <= pi
-  const { a, b, c } = geometrySettings;
-  // const theta_min = geometrySettings.thetaMin * Math.PI / 180;
-  const thetaMin = (geometrySettings.thetaMin === -90) ? -89 * Math.PI / 180 : geometrySettings.thetaMin * Math.PI / 180;
-  // const theta_max = geometrySettings.thetaMax * Math.PI / 180;
-  const thetaMax = (geometrySettings.thetaMax === 90) ? 89 * Math.PI / 180 : geometrySettings.thetaMax * Math.PI / 180;
+  let { a, b, c, thetaMin, thetaMax, hTop, hMiddle, hBottom, hTopFraction, hTopShift, Divisions, divisions } = geometrySettings;
 
-  // const htop = geometrySettings.hTop;
-  const htop = (thetaMax <= 0 && geometrySettings.hTop === 0) ? 0.001 : geometrySettings.hTop;
+  a = isNaN(a) ? 0 : a; // check to make sure a is a number
+  b = isNaN(b) ? 0 : b;
+  c = isNaN(c) ? 0 : c;
+
+  thetaMin = isNaN(thetaMin) ? -90 : thetaMin;
+  thetaMin = (thetaMin === -90) ? -89 * Math.PI / 180 : thetaMin * Math.PI / 180;
+  
+  thetaMax = isNaN(thetaMax) ? 90 : thetaMax;
+  thetaMax = (thetaMax === 90) ? 89 * Math.PI / 180 : thetaMax * Math.PI / 180;
+
+  hTop = isNaN(hTop) ? 0 : hTop;
+  hTop = (thetaMax <= 0 && hTop === 0) ? 0.001 : hTop;
+
   // hMiddle can't be zero if cylindrical projection is used so make it an insubstantially small number instead
-  const hmiddle = geometrySettings.hMiddle === 0 ? 0.001 : geometrySettings.hMiddle;
-  const hbottom = geometrySettings.hBottom;
-  const htopfraction = geometrySettings.hTopFraction;
-  const htopshift = geometrySettings.hTopShift;
-  const { Divisions } = geometrySettings;
-  let { divisions } = geometrySettings;
+  hMiddle = isNaN(hMiddle) ? 0 : hMiddle;
+  hMiddle = hMiddle === 0 ? 0.001 : hMiddle;
+  
+  hBottom = isNaN(hBottom) ? 0 : hBottom;
+  hTopFraction = isNaN(hTopFraction) ? 0 : hTopFraction;
+  hTopShift = isNaN(hTopShift) ? 0 : hTopShift;
+  Divisions = isNaN(Divisions) ? 4 : Divisions;
+  divisions = isNaN(divisions) ? 4 : divisions;
 
   // -----------------------------------------------------------------------------
   // Compute basic dimensions of the ellipsoid
@@ -161,7 +170,7 @@ export function computeGeometry(geometrySettings) {
   // Add height to ellipsoid
   // --------------------------------------------------------------------------
 
-  if (hmiddle !== 0 && (thetaMax > 0 && thetaMin < 0)) { // if there is hmiddle specified and range of theta spans 0
+  if (hMiddle !== 0 && (thetaMax > 0 && thetaMin < 0)) { // if there is hMiddle specified and range of theta spans 0
     // find the widest point (top, bottom, or theta=0)
     let indexInsert = 0;
     while (ellipsoid[0][indexInsert].z < 0) {
@@ -177,35 +186,35 @@ export function computeGeometry(geometrySettings) {
       ); // double the theta = 0 point
       for (let indexT = 0; indexT <= indexInsert; indexT += 1) {
         // shift bottom half of ellipsoid down
-        ellipsoid[indexP][indexT].z -= hmiddle / 2;
+        ellipsoid[indexP][indexT].z -= hMiddle / 2;
       }
       for (let indexT = indexInsert + 1; indexT <= divisions; indexT += 1) {
         // shift top half of ellipsoid up
-        ellipsoid[indexP][indexT].z += hmiddle / 2;
+        ellipsoid[indexP][indexT].z += hMiddle / 2;
       }
     }
   }
 
-  if (htop !== 0) {
+  if (hTop !== 0) {
     const indexInsert = divisions;
     for (let indexP = 0; indexP <= Divisions; indexP += 1) {
       ellipsoid[indexP].push({
-        x: ellipsoid[indexP][indexInsert].x * htopfraction + htopshift,
-        y: ellipsoid[indexP][indexInsert].y * htopfraction,
-        z: ellipsoid[indexP][indexInsert].z + htop,
+        x: ellipsoid[indexP][indexInsert].x * hTopFraction + hTopShift,
+        y: ellipsoid[indexP][indexInsert].y * hTopFraction,
+        z: ellipsoid[indexP][indexInsert].z + hTop,
       });
     }
     divisions += 1;
   }
 
-  if (hbottom !== 0) {
+  if (hBottom !== 0) {
     const indexInsert = 0;
     for (let indexP = 0; indexP <= Divisions; indexP += 1) {
       // insert point to add height value
       ellipsoid[indexP].unshift({
         x: ellipsoid[indexP][indexInsert].x,
         y: ellipsoid[indexP][indexInsert].y,
-        z: ellipsoid[indexP][indexInsert].z - hbottom,
+        z: ellipsoid[indexP][indexInsert].z - hBottom,
       });
     }
     divisions += 1;
@@ -256,11 +265,9 @@ export function computeGeometry(geometrySettings) {
       vertexB = vertexA+1;
       vertexC = vertexB+(divisions+1);
       vertexD = vertexC-1;
-      object3D += `f ${vertexA} ${vertexB} ${vertexC} ${vertexD} \n`;
+      object3D += `f ${vertexA} ${vertexD} ${vertexC} ${vertexB} \n`;
     }
   }
-console.log(object3D);
-
 
   return {
     geometry: ellipsoid,
@@ -277,8 +284,8 @@ export function computeFlatGeometry(geometry, settings) {
   // const theta_max = geometrySettings.thetaMax * Math.PI / 180;
   const thetaMax = (settings.thetaMax === 90) ? 89 * Math.PI / 180 : settings.thetaMin * Math.PI / 180;
 
-  const htop = (thetaMax <= 0 && settings.hTop === 0) ? 0.0001 : settings.hTop;
-  const hbottom = settings.hBottom;
+  const hTop = (thetaMax <= 0 && settings.hTop === 0) ? 0.0001 : settings.hTop;
+  const hBottom = settings.hBottom;
 
   const { Divisions, divisions, indexWide } = geometry;
   const ellipsoid = geometry.geometry;
@@ -337,16 +344,16 @@ export function computeFlatGeometry(geometry, settings) {
           // find angle of rotation.  this is the difference in angle from the prev panel to the current panel
           let rotationAngle = angleBetweenPlanes(edgesFlat[indexP][indexT + 1][0], edgesFlat[indexP][indexT + 1][1], edgesFlat[indexP][indexT][0], topPoint);
 
-          if (htop > 0 && indexT === divisions - 2 && thetaMax > 0) {
+          if (hTop > 0 && indexT === divisions - 2 && thetaMax > 0) {
             rotationAngle = -rotationAngle;
           }
-          if (htop > 0 && indexT === divisions - 1) {
-            // if htop is used then the last angle of rotation is 90deg
+          if (hTop > 0 && indexT === divisions - 1) {
+            // if hTop is used then the last angle of rotation is 90deg
             rotationAngle = Math.PI / 2;
           }
           // if this is a case where all the thetas are negative and its the "top" of the panel then rotate by
           // the obtuse angle between the planes not the acute angle as determined by angleBetweenPlanes
-          if (hbottom > 0 && indexT === 0 && thetaMin < 0) {
+          if (hBottom > 0 && indexT === 0 && thetaMin < 0) {
             rotationAngle = -rotationAngle;
           }
 
@@ -381,13 +388,13 @@ export function computeFlatGeometry(geometry, settings) {
           // find angle of rotation.  this is the difference in angle from the prev panel to the current panel
           let rotationAngle = angleBetweenPlanes(edgeGeometry[indexP][indexT + 1][0], edgeGeometry[indexP][indexT + 1][1], edgeGeometry[indexP][indexT][0], topPoint);
 
-          if (htop > 0 && indexT === divisions && thetaMax > 0) {
+          if (hTop > 0 && indexT === divisions && thetaMax > 0) {
             rotationAngle = -rotationAngle;
           }
 
           // if this is a case where all the thetas are negative and its the "top" of the panel then rotate by
           // the obtuse angle between the planes not the acute angle as determined by angleBetweenPlanes
-          if (hbottom > 0 && indexT === 0 && thetaMin < 0) {
+          if (hBottom > 0 && indexT === 0 && thetaMin < 0) {
             rotationAngle = -rotationAngle;
           }
 
@@ -408,10 +415,10 @@ export function computeFlatGeometry(geometry, settings) {
           // find angle of rotation.  this is the difference in angle from the prev panel to the current panel
           let rotationAngle = angleBetweenPlanes(edgeGeometry[indexP][indexT - 1][0], edgeGeometry[indexP][indexT - 1][1], bottomPoint, edgeGeometry[indexP][indexT][0]);
 
-          if (htop > 0 && indexT === divisions && thetaMax > 0) {
+          if (hTop > 0 && indexT === divisions && thetaMax > 0) {
             rotationAngle = -rotationAngle;
           }
-          if (hbottom > 0 && indexT === 0 && thetaMin < 0) {
+          if (hBottom > 0 && indexT === 0 && thetaMin < 0) {
             rotationAngle = -rotationAngle;
           }
 
@@ -477,7 +484,7 @@ export function computeFlatGeometry(geometry, settings) {
 export function drawEdges(geometrySettings, pattern, scope) {
   const { projection } = geometrySettings;
   const { ppu } = geometrySettings;
-  const htop = geometrySettings.hTop;
+  const hTop = geometrySettings.hTop;
   const minGap = geometrySettings.minGap;
   const { imageOffset } = geometrySettings;
 
@@ -549,7 +556,7 @@ export function drawEdges(geometrySettings, pattern, scope) {
         const idxPhiPrev = (indexP - 1 < 0) ? Divisions - 1 : indexP - 1;
 
         for (let indexT = 0; indexT <= divisions; indexT += 1) {
-          if (htop > 0 && indexT === divisions) {
+          if (hTop > 0 && indexT === divisions) {
             // the mingap check fails if there is added height to the ellipsoid on top so a special case is needed
             pointsFull.push([shift.x + edgesFlat[idxPhiPrev][indexT][1].x, shift.y + edgesFlat[idxPhiPrev][indexT][1].y]);
           } else if (distance(edgesFlat[idxPhiPrev][indexT][1], edgesFlat[indexP][indexT][0]) > minGap) {
@@ -558,7 +565,7 @@ export function drawEdges(geometrySettings, pattern, scope) {
           }
         }
         for (let indexT = divisions; indexT >= 0; indexT -= 1) {
-          if (htop > 0 && indexT === divisions) {
+          if (hTop > 0 && indexT === divisions) {
             // the mingap check fails if there is added height to the ellipsoid on top so a special case is needed
             pointsFull.push([shift.x + edgesFlat[indexP][indexT][0].x, shift.y + edgesFlat[indexP][indexT][0].y]);
           } else if (distance(edgesFlat[idxPhiPrev][indexT][1], edgesFlat[indexP][indexT][0]) > minGap) {

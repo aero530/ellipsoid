@@ -234,7 +234,7 @@ class EllipsoidInput extends React.Component {
                 }}
                 value={input.thetaMin}
                 onChange={(event) => {
-                  handleSubmit(event.target.id, parseFloat(event.target.value) );
+                  handleSubmit(event.target.id, parseFloat(event.target.value));
                 }}
               />
             </Tooltip>
