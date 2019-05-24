@@ -2,8 +2,6 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import * as vis from 'vis';
 import ReactResizeDetector  from 'react-resize-detector';
-import * as THREE from 'three';
-import {OBJLoader} from 'three/examples/jsm/loaders/OBJLoader'; //https://threejs.org/docs/#manual/en/introduction/Import-via-modules
 
 import {
   getUnits,
@@ -81,45 +79,6 @@ function drawVisualization(edges, elementid) {
   var graph = new vis.Graph3d(container, data, options);
 }
 
-function drawObj(objString) {
-
-  const width = 200;
-  const height = 200;
-  // ADD SCENE
-  const scene = new THREE.Scene()
-  // ADD CAMERA
-  const camera = new THREE.PerspectiveCamera(
-    75,
-    width / height,
-    0.1,
-    1000
-  )
-  camera.position.z = 4
-  // ADD RENDERER
-  const objCanvas = document.getElementById('objscene');
-  const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: objCanvas })
-  renderer.setClearColor('#000000')
-  renderer.setSize(width, height)
-
-  //this.mount.appendChild(renderer.domElement)
-  //document.body.appendChild( renderer.domElement );
-
-  // ADD CUBE
-  const geometry = new THREE.BoxGeometry(1, 1, 1)
-  const material = new THREE.MeshBasicMaterial({color: '#433F81'})
-  const cube = new THREE.Mesh(geometry, material)
-  const loader = new OBJLoader;
-  
-  const ellipsoid = loader.parse(objString);
-  console.log("cube");
-  console.log(cube);
-  console.log("ellipsoid");
-  console.log(ellipsoid);
-  scene.add(cube)
-  scene.add(ellipsoid)
-  renderer.render(scene, camera);
-}
-
 class View3D extends Component {
   constructor(props) {
     super(props);
@@ -129,7 +88,6 @@ class View3D extends Component {
   componentDidUpdate() {
     const { shape, id, obj3D } = this.props;
     drawVisualization(shape, id);
-    drawObj(obj3D);
   }
 
   handleDownload() {
@@ -166,11 +124,6 @@ class View3D extends Component {
           <button type="submit" onClick={this.handleDownload}>Download OBJ</button>
           <br />
           <div id={id} style={{ width: size, height: size }} />
-          <ReactResizeDetector handleWidth handleHeight onResize={this.onResize}>
-            {(width) => {
-              return(<canvas id="objscene" width={width} height={width} />);
-            }}
-          </ReactResizeDetector>
         </div>
       );
     }

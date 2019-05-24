@@ -249,14 +249,16 @@ export function computeGeometry(geometrySettings) {
       object3D += `v ${ellipsoid[indexP][indexT].x} ${ellipsoid[indexP][indexT].y} ${ellipsoid[indexP][indexT].z} \n`;
     }
   }
-  object3D += `s off \n`;
+
+  //object3D += `s off \n`;
+  
   // create faces
   
   // for (let indexP = 0; indexP < Divisions; indexP += 1) {
   //   for (let indexT = 0; indexT < divisions; indexT += 1) {
   for (let indexP = 1; indexP <= Divisions; indexP += 1) {
     for (let indexT = 1; indexT <= divisions; indexT += 1) {
-      object3D += `# ${indexP} ${indexT} \n`;
+      // object3D += `# ${indexP} ${indexT} \n`;
       let vertexA = 1;
       let vertexB = 1;
       let vertexC = 1;

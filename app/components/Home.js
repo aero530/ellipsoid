@@ -12,6 +12,7 @@ import EllipsoidInput from './ellipsoidInput';
 import ProjectionInput from './projectionInput';
 import Scene from './scene';
 import View3D from './view3D';
+import Three3D from './Three3D';
 
 
 const styles = theme => ({
@@ -68,6 +69,19 @@ class Home extends Component {
               <ReactResizeDetector handleWidth handleHeight onResize={this.onResize}>
                 {(width) => {
                   return(<View3D id="edges" size={`${width}px`} />);
+                }}
+              </ReactResizeDetector>
+            </Paper>
+          </Grid>
+          
+          <Grid item xs={12} md={6} lg={4}>
+            <Paper className={classes.paper} >
+              <Typography className={classes.title} variant="h6" color="inherit">
+                3D OBJ
+              </Typography>
+              <ReactResizeDetector handleWidth handleHeight onResize={this.onResize}>
+                {(width) => {
+                  return(<Three3D id="edges" size={`${width}px`} />);
                 }}
               </ReactResizeDetector>
             </Paper>
