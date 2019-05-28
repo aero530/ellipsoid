@@ -118,6 +118,8 @@ export function computeGeometry(geometrySettings) {
   hTopShift = isNaN(hTopShift) ? 0 : hTopShift;
   Divisions = isNaN(Divisions) ? 4 : Divisions;
   divisions = isNaN(divisions) ? 4 : divisions;
+  Divisions = (Divisions<3) ? 3 : Divisions;
+  divisions = (divisions<3) ? 3 : divisions;
 
   // -----------------------------------------------------------------------------
   // Compute basic dimensions of the ellipsoid

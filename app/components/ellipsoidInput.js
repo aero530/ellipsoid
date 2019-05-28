@@ -266,7 +266,7 @@ class EllipsoidInput extends React.Component {
                 id="Divisions"
                 type="number"
                 inputProps={{
-                  min: 5,
+                  min: 3,
                   max: 100,
                   step: 1,
                 }}

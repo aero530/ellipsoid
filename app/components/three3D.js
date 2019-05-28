@@ -22,19 +22,21 @@ class Three3D extends Component {
 
     this.scene = new THREE.Scene();
     //this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 4000);
-    this.camera = new THREE.OrthographicCamera( width / -30, width / 30, height / 30, height / -30, 1, 1000 );
+    this.camera = new THREE.OrthographicCamera( width / -10, width / 10, height / 10, height / -10, 1, 1000 );
     this.camera.up.set( 0, 0, 1 );
     this.camera.position.x = 7;
     this.camera.position.y = 7;
     this.camera.position.z = 2;
 
-    this.renderer = new THREE.WebGLRenderer( { antialias: true, preserveDrawingBuffer: true } );
+    this.renderer = new THREE.WebGLRenderer( { antialias: true, preserveDrawingBuffer: true} );
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
     this.renderer.gammaInput = true;
     this.renderer.gammaOutput = true;
     this.renderer.setSize(width, height);
     this.renderer.setClearColor( 0xbbbbbb, 1.0 );
+
+    this.renderer.setViewport(0, 0, width, height);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.target.set(0, 0, 0);
@@ -44,7 +46,7 @@ class Three3D extends Component {
     this.controls.update();
 
     this.mount.appendChild(this.renderer.domElement);
-    
+
     // Light
     // var pointLight = new THREE.PointLight( 0xFFFFFF, 2);
     // pointLight.position.set( 200, 250, 600 );
@@ -100,7 +102,10 @@ class Three3D extends Component {
     this.scene.add( axesHelper );
 
     const material = new THREE.MeshStandardMaterial({ color: 0x0087E6});
+    material.side = THREE.DoubleSide;
 
+
+    
     // console.log('          CUBE');
     // const geometry = new THREE.BoxGeometry( 2, 5, 6 );
     // console.log(geometry);
@@ -131,12 +136,27 @@ class Three3D extends Component {
       }
     } );
     this.scene.add(this.ellipsoid);
+    console.log(this.ellipsoid);
 
     this.animate();
   }
 
   componentDidUpdate() {
     const { obj3D } = this.props;
+    
+    // update size of window
+    const width = this.mount.clientWidth;;
+    const height = this.mount.clientHeight;
+    const canvas = this.renderer.domElement; 
+    canvas.width  = width;
+    canvas.height = height;
+    canvas.style = {width, height};
+    this.renderer.setViewport(0, 0, width, height);
+
+    // this.camera.aspect = width / height;
+    // this.camera.updateProjectionMatrix();
+
+    // update geometry (3D model)
     this.updateMesh(obj3D);
   }
 
@@ -152,6 +172,7 @@ class Three3D extends Component {
 
   updateMesh(obj3D) {
     const ellipsoidMaterial = new THREE.MeshStandardMaterial({ color: 0x0087E6});
+    ellipsoidMaterial.side = THREE.DoubleSide;
 
     const selectedObject = this.scene.getObjectByName('ellipsoid');
     this.scene.remove( selectedObject );
@@ -191,20 +212,26 @@ class Three3D extends Component {
   render() {
     const { size, id } = this.props;
     
-    if (id === 'edges') { // if this is the edges view then show the download button
+    // if size is undefined create something small to render to
+    let sizeLocal = size;
+    if (sizeLocal === 'undefinedpx') {
+      sizeLocal = '100px';
+    }
+    
+    if (id === 'edges' ) { // if this is the edges view then show the download button
 
       // this return should be modified to display the obj instead of using view3D
       // three.js will be used
       //   OBJLoader.parse() will convert the obj string to Object3D
       //   that Object3D can then be put into the scene with scene.add()
-
+      
       return (
         <div>
           <button type="submit" onClick={this.handleDownload}>Download OBJ</button>
           <br />
           <div
-            id="boardCanvas"
-            style={{ width: "80vw", height: "40vw" }}
+            id={id}
+            style={{ width: sizeLocal, height: sizeLocal }}
             ref={mount => {
               this.mount = mount;
             }}
@@ -215,7 +242,7 @@ class Three3D extends Component {
 
     return (
       <div>
-        <div id={id} style={{ width: size, height: size }} />
+        <div id={id} />
       </div>
     );
   }
