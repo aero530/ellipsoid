@@ -5,6 +5,7 @@ const initialState = {
   indexWide: 0,
   divisions: 0,
   Divisions: 0,
+  obj: '',
 };
 
 export default function (state = initialState, action) {

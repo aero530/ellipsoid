@@ -4,6 +4,7 @@ const initialState = {
   edgesFlat: [],
   edges: [],
   indexWide: 0,
+  obj: '',
 };
 
 export default function (state = initialState, action) {

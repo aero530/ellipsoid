@@ -142,7 +142,7 @@ class Three3D extends Component {
   }
 
   componentDidUpdate() {
-    const { obj3D } = this.props;
+    const { model } = this.props;
     
     // update size of window
     const width = this.mount.clientWidth;;
@@ -157,7 +157,7 @@ class Three3D extends Component {
     this.camera.updateProjectionMatrix();
 
     // update geometry (3D model)
-    this.updateMesh(obj3D);
+    this.updateMesh(model);
   }
 
   componentWillUnmount() {
@@ -218,8 +218,6 @@ class Three3D extends Component {
     this.camera.updateProjectionMatrix();
 
     this.controls.target.set(center.x, center.y, center.z);
-
-
   }
 
   handleDownload() {
@@ -228,10 +226,10 @@ class Three3D extends Component {
       b,
       c,
       ppu,
-      obj3D,
+      model,
     } = this.props;
 
-    const url = `data:text/plain;utf8,${encodeURIComponent(obj3D)}`;
+    const url = `data:text/plain;utf8,${encodeURIComponent(model)}`;
     const link = document.createElement('a');
     const units = getUnits(ppu);
     const filename = `ellipsoid_a${a}${units}_b${b}${units}_c${c}${units}.obj`;
@@ -250,7 +248,7 @@ class Three3D extends Component {
       sizeLocal = '100px';
     }
     
-    if (id === 'edges' ) { // if this is the edges view then show the download button
+    if (id === 'edges' || id === 'edgesFlat' ) { // if this is the edges view then show the download button
 
       // this return should be modified to display the obj instead of using view3D
       // three.js will be used
@@ -284,7 +282,7 @@ class Three3D extends Component {
 function mapStateToProps(state, ownprops) {
   return {
     shape: state.edges[ownprops.id],
-    obj3D: state.geometry.obj,
+    // obj3D: state.geometry.obj,
     a: state.input.a.toFixed(2).toString(),
     b: state.input.b.toFixed(2).toString(),
     c: state.input.c.toFixed(2).toString(),

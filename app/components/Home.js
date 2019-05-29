@@ -11,7 +11,6 @@ import Typography from '@material-ui/core/Typography';
 import EllipsoidInput from './ellipsoidInput';
 import ProjectionInput from './projectionInput';
 import Scene from './scene';
-import View3D from './view3D';
 import Three3D from './Three3D';
 
 
@@ -33,7 +32,7 @@ const styles = theme => ({
 
 class Home extends Component {
   render() {
-    const { classes } = this.props;
+    const { classes, obj3D, objFlat } = this.props;
     return (
       <div className={classes.root} >
         <Grid container className={classes.root} spacing={16}>
@@ -64,24 +63,11 @@ class Home extends Component {
           <Grid item xs={12} md={6} lg={4}>
             <Paper className={classes.paper} >
               <Typography className={classes.title} variant="h6" color="inherit">
-                3D Geometry
-              </Typography>
-              <ReactResizeDetector handleWidth handleHeight onResize={this.onResize}>
-                {(width) => {
-                  return(<View3D id="edges" size={`${width}px`} />);
-                }}
-              </ReactResizeDetector>
-            </Paper>
-          </Grid>
-          
-          <Grid item xs={12} md={6} lg={4}>
-            <Paper className={classes.paper} >
-              <Typography className={classes.title} variant="h6" color="inherit">
                 3D OBJ
               </Typography>
               <ReactResizeDetector handleWidth handleHeight onResize={this.onResize}>
                 {(width) => {
-                  return(<Three3D id="edges" size={`${width}px`} />);
+                  return(<Three3D id="edges" size={`${width}px`} model={obj3D} />);
                 }}
               </ReactResizeDetector>
             </Paper>
@@ -90,11 +76,11 @@ class Home extends Component {
           <Grid item xs={12} md={6} lg={4}>
             <Paper className={classes.paper} >
               <Typography className={classes.title} variant="h6" color="inherit">
-                Flattened Pattern
+                3D OBJ
               </Typography>
               <ReactResizeDetector handleWidth handleHeight onResize={this.onResize}>
                 {(width) => {
-                  return(<View3D id="edgesFlat" size={`${width}px`} />);
+                  return(<Three3D id="edgesFlat" size={`${width}px`} model={objFlat} />);
                 }}
               </ReactResizeDetector>
             </Paper>
@@ -115,9 +101,14 @@ class Home extends Component {
   }
 }
 
+// connects root reducer to props
+function mapStateToProps(state) {
+  return {
+    obj3D: state.geometry.obj,
+    objFlat: state.edges.obj,
+  };
+}
 
-const mapStateToProps = () => ({
-});
 
 const mapDispatchToProps = () => ({
 });

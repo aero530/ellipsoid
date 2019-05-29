@@ -82,38 +82,17 @@ function drawVisualization(edges, elementid) {
 class View3D extends Component {
   constructor(props) {
     super(props);
-    this.handleDownload = this.handleDownload.bind(this);
   }
 
   componentDidUpdate() {
-    const { shape, id, obj3D } = this.props;
+    const { shape, id } = this.props;
     drawVisualization(shape, id);
-  }
-
-  handleDownload() {
-    const {
-      a,
-      b,
-      c,
-      ppu,
-      obj3D,
-    } = this.props;
-
-    const url = `data:text/plain;utf8,${encodeURIComponent(obj3D)}`;
-    const link = document.createElement('a');
-    const units = getUnits(ppu);
-    const filename = `ellipsoid_a${a}${units}_b${b}${units}_c${c}${units}.obj`;
-
-    link.download = filename;
-    link.href = url;
-    link.click();
   }
 
   render() {
     const { size, id } = this.props;
     
     if (id === 'edges') { // if this is the edges view then show the download button
-
       // this return should be modified to display the obj instead of using view3D
       // three.js will be used
       //   OBJLoader.parse() will convert the obj string to Object3D
@@ -121,8 +100,6 @@ class View3D extends Component {
 
       return (
         <div>
-          <button type="submit" onClick={this.handleDownload}>Download OBJ</button>
-          <br />
           <div id={id} style={{ width: size, height: size }} />
         </div>
       );
@@ -140,7 +117,6 @@ class View3D extends Component {
 function mapStateToProps(state, ownprops) {
   return {
     shape: state.edges[ownprops.id],
-    obj3D: state.geometry.obj,
     a: state.input.a.toFixed(2).toString(),
     b: state.input.b.toFixed(2).toString(),
     c: state.input.c.toFixed(2).toString(),

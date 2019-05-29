@@ -251,13 +251,9 @@ export function computeGeometry(geometrySettings) {
       object3D += `v ${ellipsoid[indexP][indexT].x} ${ellipsoid[indexP][indexT].y} ${ellipsoid[indexP][indexT].z} \n`;
     }
   }
-
-  //object3D += `s off \n`;
   
   // create faces
   
-  // for (let indexP = 0; indexP < Divisions; indexP += 1) {
-  //   for (let indexT = 0; indexT < divisions; indexT += 1) {
   for (let indexP = 1; indexP <= Divisions; indexP += 1) {
     for (let indexT = 1; indexT <= divisions; indexT += 1) {
       // object3D += `# ${indexP} ${indexT} \n`;
@@ -465,12 +461,20 @@ export function computeFlatGeometry(geometry, settings) {
   console.debug(edgesFlat);
 
 
+  
+  
+  // --------------------------------------------------------------------------
+  // reorder output of cylindrical projection
+  // --------------------------------------------------------------------------
+
+  let output = edgesFlat;
   switch (settings.projection) {
     case 'spherical':
-      return { edgesFlat: edgesFlat, edges: edgeGeometry, indexWide };
+      output = edgesFlat;
+      break;
     case 'cylindrical':
       // reorder the points of the flattened edges to be in the x/y domain
-      const output = Array.from(edgesFlat, val1 =>
+      output = Array.from(edgesFlat, val1 =>
         Array.from(val1, val2 =>
           Array.from(val2, (val3) => {
             return {
@@ -479,10 +483,45 @@ export function computeFlatGeometry(geometry, settings) {
               z: val3.x,
             };
           })));
-      return { edgesFlat: output, edges: edgeGeometry, indexWide };
+          break;
     default:
       console.error('ERROR - Projection Type');
+      break;
   }
+
+  // --------------------------------------------------------------------------
+  // Generate OBJ ascii of output
+  // --------------------------------------------------------------------------
+  let object3D = '';
+  // create verticies
+  for (let indexP = 0; indexP < Divisions; indexP += 1) {
+    for (let indexT = 0; indexT <= divisions; indexT += 1) {
+      object3D += `v ${output[indexP][indexT][0].x} ${output[indexP][indexT][0].y} ${output[indexP][indexT][0].z} \n`;
+      object3D += `v ${output[indexP][indexT][1].x} ${output[indexP][indexT][1].y} ${output[indexP][indexT][1].z} \n`;
+    }
+  }
+  
+  // create faces
+  
+  for (let indexP = 0; indexP < Divisions; indexP += 1) {
+    for (let indexT = 0; indexT < divisions; indexT += 1) {
+      let vertexA = 1;
+      let vertexB = 1;
+      let vertexC = 1;
+      let vertexD = 1;
+      vertexA = 1 + indexT*2 + (indexP)*divisions*2 + (indexP)*2;
+      vertexB = vertexA+1;
+      vertexC = vertexA+3;
+      vertexD = vertexA+2;
+      object3D += `f ${vertexA} ${vertexB} ${vertexC} ${vertexD} \n`;
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Return values
+  // --------------------------------------------------------------------------
+
+  return { edgesFlat: output, edges: edgeGeometry, indexWide, obj: object3D };
 }
 
 export function drawEdges(geometrySettings, pattern, scope) {
