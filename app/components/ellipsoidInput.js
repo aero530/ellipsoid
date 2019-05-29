@@ -198,26 +198,24 @@ class EllipsoidInput extends React.Component {
         </div>
 
         <div>
-          <Tooltip title="units used in SVG file">
-            <Select
-              className={classes.textInput} 
-              value={input.ppu}
-              onChange={(event) => {
-                handleSubmit(event.target.name, event.target.value);
-              }}
-              inputProps={{
-                name: 'ppu',
-                id: 'ppu-simple',
-              }}
-            >
-              <MenuItem value="">
-                <em>None</em>
-              </MenuItem>
-              <MenuItem value={96}>in</MenuItem>
-              <MenuItem value={3.7795276}>mm</MenuItem>
-              <MenuItem value={37.795276}>cm</MenuItem>
-            </Select>
-          </Tooltip>
+          <Select
+            className={classes.textInput} 
+            value={input.ppu}
+            onChange={(event) => {
+              handleSubmit(event.target.name, event.target.value);
+            }}
+            inputProps={{
+              name: 'ppu',
+              id: 'ppu-simple',
+            }}
+          >
+            <MenuItem value="">
+              <em>None</em>
+            </MenuItem>
+            <MenuItem value={96}>in</MenuItem>
+            <MenuItem value={3.7795276}>mm</MenuItem>
+            <MenuItem value={37.795276}>cm</MenuItem>
+          </Select>
         </div>
 
         <div>

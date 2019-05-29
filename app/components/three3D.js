@@ -22,7 +22,7 @@ class Three3D extends Component {
 
     this.scene = new THREE.Scene();
     //this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 4000);
-    this.camera = new THREE.OrthographicCamera( width / -10, width / 10, height / 10, height / -10, 1, 1000 );
+    this.camera = new THREE.OrthographicCamera( width / -2, width / 2, height / 2, height / -2, 1, 2000 );
     this.camera.up.set( 0, 0, 1 );
     this.camera.position.x = 7;
     this.camera.position.y = 7;
@@ -105,7 +105,7 @@ class Three3D extends Component {
     material.side = THREE.DoubleSide;
 
 
-    
+
     // console.log('          CUBE');
     // const geometry = new THREE.BoxGeometry( 2, 5, 6 );
     // console.log(geometry);
@@ -153,8 +153,8 @@ class Three3D extends Component {
     canvas.style = {width, height};
     this.renderer.setViewport(0, 0, width, height);
 
-    // this.camera.aspect = width / height;
-    // this.camera.updateProjectionMatrix();
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
 
     // update geometry (3D model)
     this.updateMesh(obj3D);
@@ -171,22 +171,54 @@ class Three3D extends Component {
   }
 
   updateMesh(obj3D) {
+    // define material to apply to each mesh panel
     const ellipsoidMaterial = new THREE.MeshStandardMaterial({ color: 0x0087E6});
     ellipsoidMaterial.side = THREE.DoubleSide;
 
+    // remove the previous mesh from the scene
     const selectedObject = this.scene.getObjectByName('ellipsoid');
     this.scene.remove( selectedObject );
 
+    // parse the OBJ mesh
     this.loader = new OBJLoader();
     this.ellipsoid = this.loader.parse(obj3D);
     this.ellipsoid.castShadow = true;
     this.ellipsoid.name = 'ellipsoid';
+
+    // apply material to each panel in the mesh
     this.ellipsoid.traverse( ( child ) => {
       if ( child.isMesh ) {
         child.material = ellipsoidMaterial;
       }
     } );
+
+    // add the mesh to the scene
     this.scene.add(this.ellipsoid);
+
+    // update camera
+
+    // create an helper box around the ellipsoid
+    const helper = new THREE.BoxHelper(this.ellipsoid);
+    helper.update();
+    // get the bounding sphere
+    const {center, radius} = helper.geometry.boundingSphere;
+    // calculate the height of the ellipsoid
+    const realHeight = Math.abs((center.z+radius) - (center.z-radius));
+
+    // update the camera position and frustum to keep the ellipsoid in view
+    this.camera.left = realHeight / -2;
+    this.camera.right = realHeight / 2;
+    this.camera.top = realHeight / 2;
+    this.camera.bottom = realHeight / -2;
+
+    this.camera.position.x = radius;
+    this.camera.position.y = radius;
+    this.camera.position.z = radius*.25;
+
+    this.camera.updateProjectionMatrix();
+
+    this.controls.target.set(center.x, center.y, center.z);
+
 
   }
 
