@@ -218,6 +218,8 @@ class Three3D extends Component {
     this.camera.updateProjectionMatrix();
 
     this.controls.target.set(center.x, center.y, center.z);
+    this.controls.update();
+    this.animate();
   }
 
   handleDownload() {

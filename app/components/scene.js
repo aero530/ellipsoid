@@ -4,7 +4,6 @@ import { connect } from 'react-redux';
 import { withStyles } from '@material-ui/core/styles';
 import PropTypes from 'prop-types';
 import * as paper from 'paper';
-import ReactResizeDetector  from 'react-resize-detector';
 import {
   computeGeometry,
   computeFlatGeometry,
@@ -150,15 +149,19 @@ class Scene extends Component {
   }
 
   render() {
+    const { size } = this.props;
+    
+    // if size is undefined create something small to render to
+    let sizeLocal = size;
+    if (sizeLocal === 'undefinedpx') {
+      sizeLocal = '100px';
+    }
+
     return (
       <div>
         <button type="submit" onClick={this.handleDownload}>Download SVG</button>
           <br />
-          <ReactResizeDetector handleWidth handleHeight onResize={this.onResize}>
-            {(width) => {
-              return(<canvas id="paper" width={width} height={width} />);
-            }}
-          </ReactResizeDetector>
+          <canvas style={{ width: sizeLocal, height: sizeLocal }} id='paper' width={sizeLocal} height={sizeLocal} />
       </div>
     );
   }

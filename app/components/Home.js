@@ -91,7 +91,11 @@ class Home extends Component {
               <Typography className={classes.title} variant="h6" color="inherit">
                 SVG Pattern
               </Typography>
-              <Scene />
+              <ReactResizeDetector handleWidth handleHeight onResize={this.onResize}>
+                {(width) => {
+                  return(<Scene id="svgDiv" size={`${width}px`} />);
+                }}
+              </ReactResizeDetector>
             </Paper>
           </Grid>
         
