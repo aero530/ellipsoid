@@ -14,10 +14,15 @@ class Three3D extends Component {
     this.handleDownload = this.handleDownload.bind(this);
     this.animate = this.animate.bind(this);
     this.updateMesh = this.updateMesh.bind(this);
+    
+    this.onDocumentMouseMove = this.onDocumentMouseMove.bind(this);
+    this.onDocumentMouseDown = this.onDocumentMouseDown.bind(this);
+    this.onDocumentKeyDown = this.onDocumentKeyDown.bind(this);
+    this.onDocumentKeyUp = this.onDocumentKeyUp.bind(this);
   }
 
   componentDidMount() {
-    const width = this.mount.clientWidth;;
+    const width = this.mount.clientWidth;
     const height = this.mount.clientHeight;
 
     this.scene = new THREE.Scene();
@@ -105,7 +110,31 @@ class Three3D extends Component {
     material.side = THREE.DoubleSide;
 
 
+    
+		// roll-over helpers
+    const rollOverGeo = new THREE.BoxBufferGeometry( 50, 50, 50 );
+    const rollOverMaterial = new THREE.MeshBasicMaterial( { color: 0xff0000, opacity: 0.5, transparent: true } );
+    this.rollOverMesh = new THREE.Mesh( rollOverGeo, rollOverMaterial );
+    this.scene.add( this.rollOverMesh );
+    // cubes
+    // this.cubeGeo = new THREE.BoxBufferGeometry( 50, 50, 50 );
+    // this.cubeMaterial = new THREE.MeshBasicMaterial( { color: 0xfeb74c  } );
 
+    this.pointMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000});
+    this.pointMaterial.side = THREE.DoubleSide;
+    this.pointGeometry = new THREE.SphereGeometry( .2, 10, 10 );
+
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+    this.isShiftDown = false;
+    this.isCrtlDown = false;
+    this.objects = [];
+
+    this.mount.addEventListener( 'mousemove', this.onDocumentMouseMove, false );
+    this.mount.addEventListener( 'mousedown', this.onDocumentMouseDown, false );
+    document.addEventListener("keydown", this.onDocumentKeyDown, false);
+    document.addEventListener("keyup", this.onDocumentKeyUp, false);
+    
     // console.log('          CUBE');
     // const geometry = new THREE.BoxGeometry( 2, 5, 6 );
     // console.log(geometry);
@@ -163,6 +192,11 @@ class Three3D extends Component {
   componentWillUnmount() {
     cancelAnimationFrame(this.frameId);
     this.mount.removeChild(this.renderer.domElement);
+
+    this.mount.removeEventListener( 'mousemove', this.onDocumentMouseMove, false );
+    this.mount.removeEventListener( 'mousedown', this.onDocumentMouseDown, false );
+    document.removeEventListener("keydown", this.onDocumentKeyDown, false);
+    document.removeEventListener("keyup", this.onDocumentKeyUp, false);
   }
 
   animate() {
@@ -239,6 +273,76 @@ class Three3D extends Component {
     link.download = filename;
     link.href = url;
     link.click();
+  }
+
+
+  onDocumentMouseMove( event ) {
+    event.preventDefault();
+    const width = this.mount.clientWidth;
+    const height = this.mount.clientHeight;
+    this.mouse.set( ( event.offsetX / width ) * 2 - 1, - ( event.offsetY / height ) * 2 + 1 );
+    this.raycaster.setFromCamera( this.mouse, this.camera );
+    const intersects = this.raycaster.intersectObjects( this.objects );
+    if ( intersects.length > 0 ) {
+      // console.log(intersects);
+      const intersect = intersects[ 0 ];
+      this.rollOverMesh.position.copy( intersect.point );
+      // this.rollOverMesh.position.copy( intersect.point ).add( intersect.face.normal );
+      // this.rollOverMesh.position.divideScalar( 50 ).floor().multiplyScalar( 50 ).addScalar( 25 );
+    }
+    this.animate();
+  }
+
+  onDocumentMouseDown( event ) {
+    event.preventDefault();
+    // event.offsetX & event.offsetY give mouse coordinates relative to 3d scene
+    const width = this.mount.clientWidth;
+    const height = this.mount.clientHeight;
+    this.mouse.set( ( event.offsetX / width ) * 2 - 1, - ( event.offsetY / height ) * 2 + 1 );
+    this.raycaster.setFromCamera( this.mouse, this.camera );
+    // const intersects = this.raycaster.intersectObject( this.ellipsoid, true );
+    const intersects = this.raycaster.intersectObjects( [this.ellipsoid, ...this.objects], true );
+    console.log('intersects');
+    console.log(intersects);
+    if ( intersects.length > 0 ) {
+      const intersect = intersects[ 0 ];
+      // delete cube
+      if ( this.isShiftDown && intersect.object.name === 'cutoutPoint' ) { // make sure shift is down an the intersection is with a point
+        console.log('Remove');
+        console.log(intersect);
+        console.log(this.objects);
+        console.log(this.objects.indexOf( intersect.object ));
+        this.scene.remove( intersect.object );
+        this.objects.splice( this.objects.indexOf( intersect.object ), 1 );
+        console.log(this.objects);
+      } else if ( this.isCrtlDown ) { // create cube
+        console.log('Add');
+        const point = new THREE.Mesh( this.pointGeometry, this.pointMaterial );
+        point.position.copy( intersect.point );
+        point.castShadow = true;
+        point.name = 'cutoutPoint'
+        this.scene.add( point );
+        this.objects.push( point );
+        console.log(this.objects);
+      }
+      this.animate();
+    }
+  }
+
+  onDocumentKeyDown( event ) {
+    switch ( event.keyCode ) {
+      case 16: this.isShiftDown = true; break;
+      case 17: this.isCrtlDown = true; break;
+      default: break;
+    }
+  }
+  
+  onDocumentKeyUp( event ) {
+    switch ( event.keyCode ) {
+      case 16: this.isShiftDown = false; break;
+      case 17: this.isCrtlDown = false; break;
+      default: break;
+    }
   }
 
   render() {
