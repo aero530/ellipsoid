@@ -170,7 +170,7 @@
     "identity-obj-proxy": "^3.0.0",
     "lint-staged": "^8.1.0",
     "mini-css-extract-plugin": "^0.4.4",
-    "node-sass": "^4.10.0",
+    "node-sass": "^4.13.1",
     "opencollective-postinstall": "^2.0.1",
     "optimize-css-assets-webpack-plugin": "^5.0.1",
     "prettier": "^1.15.2",
