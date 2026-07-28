@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Ellipsoid Pattern Generator MSI authoring (WiX v3).
+
+  Three decisions worth knowing about:
+
+  * **Per-user install.** `InstallScope="perUser"` puts everything under
+    %LOCALAPPDATA%\Programs and needs no elevation, so installing raises no UAC prompt. Nothing
+    about a pattern generator wants administrative rights, and the per-machine package this
+    replaced could not be installed at all by someone without them.
+
+  * **Both binaries, one installer.** The GUI and the command-line tool are the same program
+    behind two front ends, and shipping them as two MSIs made a user choose between halves of
+    one thing. The install directory goes on the *user's* PATH so `ellipsoid` works in a new
+    terminal; the GUI gets the Start Menu entry.
+
+  * **A fixed UpgradeCode.** It must never change, or a new version would install alongside the
+    old one instead of replacing it. The ProductCode is regenerated per build (`Id="*"`), which
+    is what makes each version a distinct product that `MajorUpgrade` can supersede.
+
+  Values that change per build arrive as preprocessor variables from build.ps1:
+  $(var.Version), $(var.BinDir), $(var.RepoDir), $(var.LicenseRtf), $(var.BannerBmp),
+  $(var.DialogBmp).
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Name="Ellipsoid Pattern Generator"
+           Language="1033"
+           Version="$(var.Version)"
+           Manufacturer="P. Spindler"
+           UpgradeCode="143AB222-B221-48EE-8EEB-6883718AA546">
+
+    <Package InstallerVersion="500"
+             Compressed="yes"
+             InstallScope="perUser"
+             InstallPrivileges="limited"
+             Description="Ellipsoid Pattern Generator - flat patterns for ellipsoid shapes"
+             Comments="Installs for the current user only; no administrator rights required." />
+
+    <!-- Replace an older version in place rather than installing beside it. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of Ellipsoid Pattern Generator is already installed. Uninstall it first if you want to go back to this version." />
+
+    <!-- Single embedded cabinet, so the MSI is one self-contained file. -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Shown in Add/Remove Programs. The Id keeps the .ico extension because MSI validation
+         (ICE50) compares it against the shortcut it is used for. -->
+    <Icon Id="Ellipsoid.ico" SourceFile="$(var.RepoDir)\resources\icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="Ellipsoid.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/aero530/ellipsoid" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <!-- Offer to launch after a successful interactive install. `Return="ignore"` is required
+         for WixShellExec; `asyncNoWait` only applies to ExeCommand actions. -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch Ellipsoid Pattern Generator" />
+    <Property Id="WixShellExecTarget" Value="[#EllipsoidAppExe]" />
+    <CustomAction Id="LaunchEllipsoid"
+                  BinaryKey="WixCA"
+                  DllEntry="WixShellExec"
+                  Impersonate="yes"
+                  Return="ignore" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <!-- Per-user installs cannot write to Program Files, so the convention is
+           %LOCALAPPDATA%\Programs\<app>, which is where per-user MSIs and tools like VS Code go. -->
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="ProgramsFolder" Name="Programs">
+          <Directory Id="INSTALLFOLDER" Name="Ellipsoid" />
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder" />
+    </Directory>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <!--
+        One component for everything installed, keyed on an HKCU registry value.
+
+        A per-user component must use a registry key under HKCU as its keypath rather than a file
+        (MSI validation rule ICE38): the file lives in a profile MSI cannot inspect for other
+        users, so a per-user marker in the registry is what makes presence detectable.
+      -->
+      <Component Id="EllipsoidFiles" Guid="E440D9F8-D235-4382-BEEF-FA1DACC99B15">
+        <RegistryValue Root="HKCU"
+                       Key="Software\Ellipsoid Pattern Generator"
+                       Name="InstallFolder"
+                       Type="string"
+                       Value="[INSTALLFOLDER]"
+                       KeyPath="yes" />
+
+        <File Id="EllipsoidAppExe" Name="ellipsoid-app.exe" Source="$(var.BinDir)\ellipsoid-app.exe" />
+        <File Id="EllipsoidCliExe" Name="ellipsoid.exe" Source="$(var.BinDir)\ellipsoid.exe" />
+        <!-- The MIT licence requires the notice to travel with the distribution. -->
+        <File Id="LicenseTxt" Name="LICENSE.txt" Source="$(var.RepoDir)\LICENSE" />
+        <File Id="ReadmeMd" Name="README.md" Source="$(var.RepoDir)\README.md" />
+        <File Id="ChangelogMd" Name="CHANGELOG.md" Source="$(var.RepoDir)\CHANGELOG.md" />
+
+        <!-- The command-line tool is only useful if the shell can find it. `System="no"` keeps
+             this in the user's own environment, which is the only one a per-user install may
+             write, and `Part="last"` appends rather than replacing what is already there. -->
+        <Environment Id="UserPath"
+                     Name="PATH"
+                     Value="[INSTALLFOLDER]"
+                     Permanent="no"
+                     Part="last"
+                     Action="set"
+                     System="no" />
+
+        <!-- A non-advertised shortcut. Advertised shortcuts trigger installer self-repair, which
+             a per-user application does not need, and they force the icon to match the
+             component's keypath file. -->
+        <Shortcut Id="StartMenuShortcut"
+                  Directory="ProgramMenuFolder"
+                  Name="Ellipsoid Pattern Generator"
+                  Description="Generate cut patterns for ellipsoid shapes"
+                  Target="[#EllipsoidAppExe]"
+                  Icon="Ellipsoid.ico"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Advertise="no" />
+
+        <!-- MSI removes the files it installed but not the directories holding them, which would
+             otherwise be left behind empty. Both levels are listed because validation (ICE64)
+             requires every profile directory the package creates to be cleaned up.
+             This is safe for the shared `Programs` parent: RemoveFolder deletes a directory only
+             when it is empty, so another application's folder there keeps it alive. -->
+        <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+        <RemoveFolder Id="RemoveProgramsFolder" Directory="ProgramsFolder" On="uninstall" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Complete" Title="Ellipsoid Pattern Generator" Level="1" Display="expand" AllowAdvertise="no">
+      <ComponentRef Id="EllipsoidFiles" />
+    </Feature>
+
+    <!-- A directory-choosing wizard. WixUI_Minimal would hide the location, which matters here
+         because a per-user path is not where people expect to look. -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <!--
+      Without this, WixUI falls back to the placeholder License.rtf inside WixUIExtension and
+      the licence page reads "Lorem ipsum dolor sit amet". build.ps1 generates the file from
+      the repository's LICENSE, so the page shows the MIT text the project is under and cannot
+      drift from it.
+    -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+
+    <!--
+      Likewise the artwork: left unset, WixUI uses its own bundled bitmaps. Both are rendered
+      from resources/icon.png by build.ps1, which also asserts the sizes WixUI requires - a
+      wrongly sized bitmap is not an error, it just renders badly.
+    -->
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.BannerBmp)" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.DialogBmp)" />
+
+    <UIRef Id="WixUI_InstallDir" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+
+    <!-- Driven from the exit dialog rather than the execute sequence: the checkbox property is
+         set by the UI and is not available to the execute sequence, so a sequenced condition on
+         it would never be true. -->
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchEllipsoid">
+        WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed
+      </Publish>
+    </UI>
+  </Product>
+</Wix>
