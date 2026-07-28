@@ -1,0 +1,28 @@
+[package]
+name = "ellipsoid-cli"
+description = "Headless ellipsoid flat-pattern generator."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[package.metadata.wix]
+upgrade-guid = "31AC967F-AC4A-4016-ABBC-EA52036DE14C"
+path-guid = "E30B9056-A239-4A38-9443-E0F257C1EC70"
+license = false
+eula = false
+
+[[bin]]
+name = "ellipsoid"
+path = "src/main.rs"
+
+[dependencies]
+ellipsoid-core.workspace = true
+ellipsoid-pattern.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+serde.workspace = true

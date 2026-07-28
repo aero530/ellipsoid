@@ -1,0 +1,76 @@
+name: Web demo
+
+# The demo tracks master rather than releases: it costs nothing to rebuild, and
+# a demo that lags the desktop app by a release is worse than no demo.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# One deployment at a time, and let a newer push win — a queued build of an
+# older commit has nothing to offer.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # rust-toolchain.toml selects the channel, components and wasm target, so
+      # rustup picks it all up on the first cargo invocation.
+      - uses: Swatinem/rust-cache@v2
+      - name: Install trunk
+        uses: jetli/trunk-action@v0.5.0
+        with:
+          version: latest
+
+      # `--public-url` because the site is served from a repository subpath
+      # (aero530.github.io/ellipsoid/), not a domain root: without it the
+      # generated <script> and wasm URLs point one level too high and the page
+      # loads to a blank canvas.
+      - name: Build
+        run: trunk build --release --public-url "/${GITHUB_REPOSITORY#*/}/"
+
+      # GitHub Pages serves brotli and gzip from its own edge for files it
+      # recognises, so nothing needs pre-compressing here — but the wasm is
+      # multiple megabytes and it is worth knowing what visitors actually pay.
+      - name: Report transfer size
+        run: |
+          {
+            echo "### Web demo"
+            echo '```'
+            for f in dist/*.wasm dist/*.js; do
+              [ -e "$f" ] || continue
+              printf '%-44s raw %7s   brotli %7s\n' \
+                "$(basename "$f")" \
+                "$(numfmt --to=iec --suffix=B "$(stat -c %s "$f")")" \
+                "$(brotli -c -q 11 "$f" | wc -c | numfmt --to=iec --suffix=B)"
+            done
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

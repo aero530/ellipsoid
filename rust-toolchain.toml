@@ -1,0 +1,11 @@
+# Tracks stable. The MSRV floor is 1.95 (bevy 0.19 and bevy_egui 0.41 both
+# declare it) and is enforced by `rust-version` in the workspace Cargo.toml,
+# which produces a clear error rather than a wall of type errors if stable ever
+# sits below it.
+#
+# `components` and `targets` are declared so a fresh clone gets clippy, rustfmt,
+# and the wasm target without a separate rustup step.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]

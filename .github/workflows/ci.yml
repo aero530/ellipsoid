@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # Bevy links a lot; keep CI logs and disk usage sane.
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  lint:
+    name: fmt + clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # rust-toolchain.toml selects the channel (stable) plus the components and
+      # wasm target, so no setup-toolchain action is needed — rustup honours it
+      # on the first cargo invocation.
+      - name: Install Bevy system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # crates/ellipsoid-app/wix/main.wxs is hand-edited and only stays that way
+      # because of `allow-dirty = ["msi"]` in dist-workspace.toml. Drop that
+      # line and `dist generate` reverts the Start Menu shortcut and the product
+      # icon — a silently plainer installer nobody notices until a user asks
+      # where the app went.
+      - name: msi-customisation
+        run: |
+          wxs=crates/ellipsoid-app/wix/main.wxs
+          # Anchored to the start of the line on purpose. Every one of these
+          # names also appears in the stock template — two in the explanatory
+          # comment at the top, the icon pair inside a commented-out block that
+          # the customisation uncomments — so a substring match would keep
+          # passing after the markup itself had been reverted.
+          for pattern in \
+            "^ *<Directory Id='ProgramMenuFolder'" \
+            "^ *Id='StartMenuShortcut'" \
+            "^ *<Icon Id='ProductICO'" \
+            "^ *<Property Id='ARPPRODUCTICON'"
+          do
+            grep -qE "$pattern" "$wxs" \
+              || { echo "::error file=$wxs::no line matching /$pattern/ — did 'dist generate' overwrite the hand edits? See the note at the top of the file."; exit 1; }
+          done
+          test -f crates/ellipsoid-app/wix/Product.ico \
+            || { echo "::error::wix/Product.ico is missing; the msi will not build"; exit 1; }
+
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Bevy system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace
+
+  wasm:
+    name: wasm build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Install trunk
+        uses: jetli/trunk-action@v0.5.0
+        with:
+          version: latest
+      - run: trunk build --release
+      - name: Report bundle size
+        run: |
+          echo "### wasm bundle" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          for f in dist/*.wasm; do
+            raw=$(stat -c %s "$f")
+            br=$(brotli -c -q 11 "$f" | wc -c)
+            printf '%-40s raw %6.1f MB   brotli %5.1f MB\n' \
+              "$(basename "$f")" \
+              "$(echo "$raw/1048576" | bc -l)" \
+              "$(echo "$br/1048576" | bc -l)" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-demo
+          path: dist/

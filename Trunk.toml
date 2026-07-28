@@ -1,0 +1,21 @@
+[build]
+target = "crates/ellipsoid-app/index.html"
+dist = "dist"
+
+[serve]
+address = "127.0.0.1"
+port = 8080
+open = false
+
+# wasm-opt is disabled via data-wasm-opt="0" in index.html.
+#
+# Trunk runs it by default on release builds, but trunk 0.20.1 cannot drive a
+# Binaryen that handles current rustc output: Binaryen 116 rejects the
+# bulk-memory instructions rustc emits, and Binaryen 123 wants an
+# --enable-bulk-memory-opt flag that trunk 0.20 never passes. Both fail
+# validation.
+#
+# Costs ~3 MB brotli (7.2 MB vs an estimated ~4 MB). Acceptable: the web build
+# is a demo (plan §12.3). The fix, whenever it is worth doing, is to upgrade
+# trunk to >= 0.21 and drop the data-wasm-opt attribute.
+

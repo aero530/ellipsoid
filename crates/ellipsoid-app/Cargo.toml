@@ -1,0 +1,60 @@
+[package]
+name = "ellipsoid-app"
+description = "Desktop and web GUI for the ellipsoid flat-pattern generator."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[package.metadata.wix]
+upgrade-guid = "CAC6D4C6-A1B1-4BE7-B39A-5DC6023DC669"
+path-guid = "80ADA7C1-B427-4247-8FA9-AE745DF71171"
+license = false
+eula = false
+
+[dependencies]
+ellipsoid-core.workspace = true
+ellipsoid-pattern.workspace = true
+bevy = { workspace = true, features = [
+    "3d",
+    "bevy_winit",
+    "mesh_picking",     # Phase 6: cutout placement needs the mesh picking backend
+    "png",
+    "tonemapping_luts",
+] }
+bevy_egui.workspace = true
+# NOTE: no "bevy_egui" feature — it pins bevy_egui ^0.40 and we run 0.41.
+bevy_panorbit_camera.workspace = true
+
+serde_json.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy = { workspace = true, features = ["multi_threaded"] }
+# Default features are xdg-portal + wayland, so no GTK dependency on Linux and
+# CI needs no extra system packages.
+rfd = "0.17"
+# Per-platform config path for the settings remembered between sessions.
+directories = "6"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+bevy = { workspace = true, features = ["x11", "wayland"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# WebGL2 rather than WebGPU: broader browser support, and the web build is a demo.
+bevy = { workspace = true, features = ["webgl2"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+# Opening a file has no synchronous form in the browser; rfd's wasm backend
+# wraps `<input type="file">` and hands back a future.
+rfd = "0.17"
+web-sys = { version = "0.3", features = [
+    "Blob",
+    "Document",
+    "HtmlAnchorElement",
+    "Storage",
+    "Url",
+    "Window",
+] }

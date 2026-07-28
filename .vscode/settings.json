@@ -1,32 +1,27 @@
 {
   "files.associations": {
-    ".babelrc": "jsonc",
-    ".eslintrc": "jsonc",
-    ".prettierrc": "jsonc",
-
-    ".stylelintrc": "json",
-
-    ".dockerignore": "ignore",
-    ".eslintignore": "ignore"
+    "*.wxs": "xml"
   },
 
-  "javascript.validate.enable": false,
-  "javascript.format.enable": false,
-  "typescript.validate.enable": false,
-  "typescript.format.enable": false,
+  // Check every target, including the tests: the web build is a shipped
+  // artefact and clippy runs with -D warnings in CI, so both should surface
+  // here rather than on a pull request.
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.check.allTargets": true,
+
+  "[rust]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "rust-lang.rust-analyzer"
+  },
 
   "search.exclude": {
-    ".git": true,
-    ".eslintcache": true,
-    "app/dist": true,
-    "app/main.prod.js": true,
-    "app/main.prod.js.map": true,
-    "bower_components": true,
-    "dll": true,
-    "release": true,
-    "node_modules": true,
-    "npm-debug.log.*": true,
-    "test/**/__snapshots__": true,
-    "yarn.lock": true
+    "target": true,
+    "dist": true,
+    // Machine-generated reference output: useful on disk, never in a result.
+    "golden": true
+  },
+
+  "files.watcherExclude": {
+    "**/target/**": true
   }
 }

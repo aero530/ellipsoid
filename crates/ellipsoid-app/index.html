@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>Ellipsoid Pattern Generator</title>
+
+    <!-- data-wasm-opt="0" disables wasm-opt; trunk 0.20 cannot drive a Binaryen
+         that accepts current rustc output. See the note in Trunk.toml.
+
+         data-initializer points at loader.js, which drives the overlay below
+         from trunk's download callbacks. -->
+    <link data-trunk rel="rust" data-wasm-opt="0" data-initializer="loader.js" />
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #2b2b2b;
+        font-family: system-ui, sans-serif;
+        color: #ddd;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        outline: none;
+      }
+
+      /* Bevy's wasm bundle is multiple megabytes; never show a blank page while
+         it downloads. Removed by the app once the canvas has content. */
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        pointer-events: none;
+      }
+
+      #loading.hidden {
+        display: none;
+      }
+
+      .spinner {
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 3px solid #444;
+        border-top-color: #0087e6;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .spinner {
+          animation-duration: 3s;
+        }
+      }
+
+      #loading-detail {
+        font-size: 0.85rem;
+        color: #999;
+        /* Reserve the line so the overlay does not jump as the text changes. */
+        min-height: 1.2em;
+      }
+
+      #loading-bar {
+        width: min(18rem, 60vw);
+        height: 4px;
+        background: #444;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+
+      #loading-bar[hidden] {
+        display: none;
+      }
+
+      #loading-fill {
+        height: 100%;
+        width: 0;
+        background: #0087e6;
+        transition: width 0.15s linear;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="loading">
+      <div class="spinner"></div>
+      <div>Loading Ellipsoid Pattern Generator…</div>
+      <div id="loading-bar" hidden><div id="loading-fill"></div></div>
+      <div id="loading-detail"></div>
+    </div>
+
+    <canvas id="ellipsoid-canvas"></canvas>
+
+    <script>
+      // Bevy resizes the canvas once it takes over; that is our cue to drop the
+      // loading overlay. Falls back to a timeout so it can never get stuck.
+      const overlay = document.getElementById('loading');
+      const canvas = document.getElementById('ellipsoid-canvas');
+      const done = () => overlay.classList.add('hidden');
+      new ResizeObserver((entries) => {
+        if (entries.some((e) => e.contentRect.width > 0 && e.contentRect.height > 0)) done();
+      }).observe(canvas);
+      setTimeout(done, 30000);
+    </script>
+  </body>
+</html>

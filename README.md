@@ -1,8 +1,8 @@
 # Ellipsoid Pattern Generator
 
-Generate an SVG flat pattern of a general ellipsoid.  Initially developed to generate flat patterns for laser cutting helmets from foam.
+Generate an SVG flat pattern of a general ellipsoid. Originally built to cut helmet shells out of foam on a laser cutter.
 
----
+Give it three semi-axes and a few options; it unrolls the surface into panels you can print, cut, and glue back into the shape.
 
 ![screenshot_001](https://raw.githubusercontent.com/aero530/ellipsoid/master/screenshots/screenshot_001.PNG "screenshot")
 
@@ -10,131 +10,115 @@ Generate an SVG flat pattern of a general ellipsoid.  Initially developed to gen
 
 ![sample_output_spherical](https://github.com/aero530/ellipsoid/raw/master/screenshots/ellipsoid_a3.75in_b2.88in_c3.00in_spherical.png "sample_output_spherical")
 
----
-
 ## Features
 
-* Specify arbitrary ellipsoid shape
-* Open top or bottom of ellipsoid
-* Add extra height to center, top, or bottom of ellipsoid
-* Specify number of horizontal and vertical divisions
-* Select units (mm, in, cm)
-* Flatten ellipsoid spherically (from the top) or cylindrically (from the front)
-* Preview flat pattern prior to saving file
-* Visualize ellipsoid and flat pattern in 3D
-* Output image includes dart lines for folding / glueing alignment
-* Output image includes ruler to verify scale when printing
-* Support for Inkscape layers
+- Arbitrary ellipsoid shape, with an open top or bottom
+- Extra height inserted at the centre, top, or bottom
+- Any number of horizontal and vertical divisions
+- Units in mm, cm, or inches
+- Unroll **spherically** (from the top, into petals) or **cylindrically** (from the front, into vertical gores)
+- Live 2D preview of the pattern, plus 3D views of the ellipsoid and the flattened panels
+- **Cutouts** — round holes and free-form shapes, placed on the 3D surface or drawn directly on the pattern. They are subtracted from the pattern, and a cutout crossing a seam opens that edge so the two panels form the shape once joined
+- Dart lines for folding and glue alignment
+- A printed ruler, to check the scale came out right
+- Inkscape layer support
+- Exports SVG, and OBJ meshes of both the surface and the flattened pattern
 
-## Installation
+## Install
 
-Download the program installation file for the current release [here](https://github.com/aero530/ellipsoid/releases).
+Download an installer or archive from [Releases](https://github.com/aero530/ellipsoid/releases).
 
-## Development Setup
+| Platform | |
+| --- | --- |
+| Windows | the `.msi`, or `irm https://github.com/aero530/ellipsoid/releases/latest/download/ellipsoid-app-installer.ps1 \| iex` |
+| macOS, Linux | `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/aero530/ellipsoid/releases/latest/download/ellipsoid-app-installer.sh \| sh` |
+| Any | the `.tar.xz` / `.zip` archive for your platform |
 
-This config works when using nodejs and yarn installed for windows (not through ubuntu in windows).
+The command-line tool ships alongside it, as `ellipsoid-cli-*`.
 
-### Install / Update Node and yarn:
+There is also a **[web demo](https://aero530.github.io/ellipsoid/)** — the same app compiled to WebAssembly. It is a demo rather than the recommended way to use this: the download is several megabytes, and it can only save to your downloads folder.
 
-https://nodejs.org/en/
+## Using the pattern view
 
-https://yarnpkg.com/en/
+Cutouts are edited directly on the flat pattern:
 
-### Install shell launcher:
+| Gesture | |
+| --- | --- |
+| drag empty space, scroll | pan, zoom |
+| ctrl-click | add a hole |
+| drag a handle | move that cutout |
+| shift-click a handle | remove it |
+| **Draw shape**, then click | place the points of a free-form cutout — Enter finishes, Escape cancels, Backspace undoes a point |
+| double-click a shape | edit its points: drag to move one, ctrl-click an edge to insert one, shift-click to remove one |
 
-Add vs code extension shell launcher.
+The 3D ellipsoid view takes ctrl-click to add a hole and shift-click to remove one. Settings are remembered between sessions, and can be saved to and loaded from JSON.
 
-https://github.com/Tyriar/vscode-shell-launcher
+## Command line
 
-Use it by crtl-shft-p 'shell'. Electron apps must be run from cmd.
+`ellipsoid` renders patterns without a GUI, for scripting or batch work.
 
-### Clone the repo via git:
+```sh
+# Defaults, straight to SVG
+ellipsoid -o helmet.svg
 
-```cmd
-git clone --depth=1 https://github.com/chentsulin/electron-react-boilerplate.git your-project-name
+# Override individual parameters
+ellipsoid -o helmet.svg --a 4.0 --b 3.0 --c 3.25 --projection spherical
+
+# Start from a settings file written by the GUI, then adjust
+ellipsoid -o helmet.svg --config helmet.json --divisions-theta 24
+
+# Meshes, and the resolved parameters
+ellipsoid --format obj      -o helmet.obj
+ellipsoid --format obj-flat -o helmet-flat.obj
+ellipsoid --format config   -o resolved.json
 ```
 
-And then install dependencies with yarn (from the node.js command prompt).
+Output goes to stdout by default, so it pipes. `ellipsoid --help` lists every parameter; they are the ones the GUI shows, and the JSON is the same format both read and write.
 
-```cmd
-$ cd your-project-name
-$ yarn
+## Building
+
+Rust only — no Node, and no system toolchain beyond a linker plus, on Linux, Bevy's dependencies. The toolchain is pinned in [rust-toolchain.toml](rust-toolchain.toml), so `rustup` fetches the right one on the first `cargo` command.
+
+```sh
+cargo run -p ellipsoid-app          # desktop GUI
+cargo run -p ellipsoid-cli -- --help
+cargo test --workspace
 ```
 
-## Run
+On Debian/Ubuntu, Bevy needs:
 
-Start the app in the `dev` environment. This starts the renderer process in [**hot-module-replacement**](https://webpack.js.org/guides/hmr-react/) mode and starts a webpack dev server that sends hot updates to the renderer process:
-
-```bash
-$ yarn dev
+```sh
+sudo apt-get install libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
 ```
 
-Alternatively, you can run the renderer and main processes separately. This way, you can restart one process without waiting for the other. Run these two commands **simultaneously** in different console tabs:
+For the web build:
 
-```bash
-$ yarn start-renderer-dev
-$ yarn start-main-dev
+```sh
+cargo install trunk
+trunk serve                          # http://127.0.0.1:8080
 ```
 
-If you don't need autofocus when your files was changed, then run `dev` with env `START_MINIMIZED=true`:
+## Layout
 
-```bash
-$ START_MINIMIZED=true yarn dev
+| Crate | |
+| --- | --- |
+| [`ellipsoid-core`](crates/ellipsoid-core) | Geometry, unrolling, surface coordinates, OBJ. No UI, no I/O; `f64` throughout |
+| [`ellipsoid-pattern`](crates/ellipsoid-pattern) | 2D scene model, page layout, cutout subtraction, SVG output |
+| [`ellipsoid-app`](crates/ellipsoid-app) | Bevy + egui GUI — one binary for both desktop and web |
+| [`ellipsoid-cli`](crates/ellipsoid-cli) | Headless renderer |
+
+`golden/` holds reference output captured from the original JavaScript, and the parity tests hold the port to it at a `1e-9` relative tolerance. That tolerance is why the core math is `f64`: `f32` cannot reach it.
+
+## About the rewrite
+
+Versions up to 1.x were an Electron app — React, Redux, paper.js, three.js. Version 2 is a rewrite in Rust. The geometry is a deliberately faithful port, checked function by function against the original's output **including its bugs**, so a pattern cut from 1.x still matches one cut from 2.x. `RUST_CONVERSION_PLAN.md` records the whole conversion: what each phase did, what went wrong, and which defects were carried over on purpose rather than quietly fixed.
+
+The JavaScript is not gone, just no longer checked out. It is tagged `js-final`:
+
+```sh
+git show js-final:app/utils/ellipsoid.js
 ```
 
-## Packaging
+## License
 
-To package apps for the local platform:
-
-```bash
-$ yarn package
-```
-
-To package apps for all platforms:
-
-First, refer to [Multi Platform Build](https://www.electron.build/multi-platform-build) for dependencies.
-
-Then,
-
-```bash
-$ yarn package-all
-```
-
-To package apps with options:
-
-```bash
-$ yarn package -- --[option]
-```
-
-:bulb: You can debug your production build with devtools by simply setting the `DEBUG_PROD` env variable:
-
-```bash
-DEBUG_PROD=true yarn package
-```
-
-## CSS Modules
-
-This boilerplate is configured to use [css-modules](https://github.com/css-modules/css-modules) out of the box.
-
-All `.css` file extensions will use css-modules unless it has `.global.css`.
-
-If you need global styles, stylesheets with `.global.css` will not go through the
-css-modules loader. e.g. `app.global.css`
-
-If you want to import global css libraries (like `bootstrap`), you can just write the following code in `.global.css`:
-
-```css
-@import '~bootstrap/dist/css/bootstrap.css';
-```
-
-## SASS support
-
-If you want to use Sass in your app, you only need to import `.sass` files instead of `.css` once:
-
-```js
-import './app.global.scss';
-```
-
-## Dispatching redux actions from main process
-
-See [#118](https://github.com/electron-react-boilerplate/electron-react-boilerplate/issues/118) and [#108](https://github.com/electron-react-boilerplate/electron-react-boilerplate/issues/108)
+MIT. See [LICENSE](LICENSE).
