@@ -377,6 +377,17 @@ pub fn pieces(
     let first = strip_of(min_u, param.phi_divisions);
     let last = strip_of(max_u, param.phi_divisions);
 
+    // A shape cannot legitimately reach past one turn either side of the
+    // pattern, so anything wider than three turns is a fit that diverged rather
+    // than a hole. Walking its strips one at a time would take longer than
+    // anyone will wait — a rim that once came back spanning 1e14 in `u` asked
+    // for 3e14 iterations of the clip below, which reads from the outside
+    // exactly like the app hanging. `densify` guards its own loop the same way.
+    let reach = 3 * param.phi_divisions as i64;
+    if last.saturating_sub(first) > reach {
+        return Vec::new();
+    }
+
     let mut out = Vec::new();
     for strip in first..=last {
         let lo = strip as f64 / strips;
@@ -763,6 +774,59 @@ mod tests {
         ];
         let clipped = clip_to_rect(&square, DVec2::new(5.0, 5.0), DVec2::new(6.0, 6.0));
         assert!(clipped.is_empty(), "{clipped:?}");
+    }
+
+    /// A hole in the fewest strips the app allows. Plan §8.8.
+    ///
+    /// Three strips used to unwrap wrong, leaving one panel edge-on to the page.
+    /// Fitting a rim there divided by a determinant of `8e-14` and asked for a
+    /// hole `1e14` wide, which `pieces` then walked one strip at a time — the app
+    /// stopped responding the moment Divisions was set to 3.
+    #[test]
+    fn a_hole_in_a_three_strip_pattern_is_still_a_hole() {
+        for phi_divisions in [3, 4, 5] {
+            let input = EllipsoidInput {
+                h_middle: 2.625,
+                phi_divisions,
+                ..EllipsoidInput::default()
+            };
+            let (p, g, f) = setup(&input);
+            let diameter = 0.7;
+            // Up in a petal, where the strip is tapering: the shape that first
+            // showed this.
+            let cutout = Cutout::hole(0.55, 0.72, diameter);
+            let pieces = pieces(&p, &g, &f, &cutout);
+
+            assert_eq!(pieces.len(), 1, "{phi_divisions} strips: hole was split");
+            let span = extent(&pieces[0]);
+            assert!(
+                (span - diameter).abs() < diameter * 0.05,
+                "{phi_divisions} strips: hole spans {span}, asked for {diameter}"
+            );
+        }
+    }
+
+    /// A rim that could not be fitted is dropped, not walked.
+    ///
+    /// The bound in `pieces` is the backstop for §8.8: whatever a future
+    /// degeneracy does to a rim, the strip walk cannot become unbounded.
+    #[test]
+    fn an_impossibly_wide_shape_is_dropped_rather_than_walked() {
+        let input = EllipsoidInput::default();
+        let (p, g, f) = setup(&input);
+
+        // Four turns wide — no hole, whatever produced it.
+        let cutout = Cutout::Polygon {
+            points: vec![[-2.0, 0.4], [2.0, 0.4], [2.0, 0.6], [-2.0, 0.6]],
+        };
+        assert!(pieces(&p, &g, &f, &cutout).is_empty());
+
+        // One turn is still entertained, so the bound cannot be mistaken for a
+        // clamp on ordinary seam-crossing shapes.
+        let across_the_seam = Cutout::Polygon {
+            points: vec![[-0.02, 0.4], [0.02, 0.4], [0.02, 0.6], [-0.02, 0.6]],
+        };
+        assert!(!pieces(&p, &g, &f, &across_the_seam).is_empty());
     }
 }
 

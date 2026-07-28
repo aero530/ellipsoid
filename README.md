@@ -61,7 +61,9 @@ Cutouts are edited directly on the flat pattern:
 | **Draw shape**, then click | place the points of a free-form cutout — Enter finishes, Escape cancels, Backspace undoes a point |
 | double-click a shape | edit its points: drag to move one, ctrl-click an edge to insert one, shift-click to remove one |
 
-The 3D ellipsoid view takes ctrl-click to add a hole and shift-click to remove one. Settings are remembered between sessions, and can be saved to and loaded from JSON.
+The 3D ellipsoid view takes ctrl-click to add a hole and shift-click to remove one. The **Material** dropdown above the two views switches them between plain colour and a UV grid; because both views use the same surface coordinates, the grid lands identically on the ellipsoid and the flattened panels, so a spot on the shell can be found on the pattern by eye.
+
+Settings are remembered between sessions, and can be saved to and loaded from JSON.
 
 ## Command line
 

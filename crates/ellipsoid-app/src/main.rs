@@ -52,6 +52,7 @@ fn main() {
                 recompute,
                 viewport::sync_meshes,
                 cutouts::sync_markers,
+                viewport::sync_material,
                 viewport::apply_viewport_sizes,
                 // Must land before the plugin reads it, and `manual: true`
                 // keeps the plugin from overwriting our choice.

@@ -1,36 +1,36 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.0.dtd" width="533.137" height="1010.163" viewBox="0 0 533.137 1010.163">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.0.dtd" width="1755.117" height="1010.163" viewBox="0 0 1755.117 1010.163">
   <g id="Ellipsoid Pattern" inkscape:groupmode="layer" inkscape:label="Ellipsoid Pattern">
-    <path d="M48,601.796 L92.069,769.075 L92.069,961.075 L450.151,961.075 L450.151,769.075 L485.137,770.163 L485.137,962.163 L485.137,962.163 L485.137,770.163 L450.151,769.075 L450.151,961.075 L92.069,961.075 L92.069,769.075 L48,601.796 L48,601.796 L48,409.796 L49.487,378.014 L127.576,190.961 L287.428,69.429 L295.057,69.429 L421.963,190.961 L483.956,378.014 L485.137,378.007 L485.137,187.913 L485.137,48 L485.137,48 L485.137,187.913 L485.137,378.007 L483.956,378.014 L421.963,190.961 L295.057,69.429 L287.428,69.429 L127.576,190.961 L49.487,378.014 L48,409.796 Z" fill="rgb(255,255,255)" fill-opacity="0.3" stroke="rgb(0,0,0)" stroke-width="1.6"/>
+    <path d="M48,601.796 L107.534,769.075 L107.534,961.075 L591.272,961.075 L591.272,769.075 L681.762,770.163 L681.762,962.163 L1073.355,962.163 L1073.355,770.163 L1163.845,769.075 L1163.845,961.075 L1647.583,961.075 L1647.583,769.075 L1707.117,601.796 L1707.117,601.796 L1707.117,409.796 L1705.108,378.014 L1599.616,190.961 L1383.669,69.429 L1373.363,69.429 L1201.925,190.961 L1118.176,378.014 L1115.123,378.007 L1038.527,187.913 L881.73,48 L873.387,48 L716.59,187.913 L639.994,378.007 L636.94,378.014 L553.192,190.961 L381.754,69.429 L371.448,69.429 L155.5,190.961 L50.009,378.014 L48,409.796 Z" fill="rgb(255,255,255)" fill-opacity="0.3" stroke="rgb(0,0,0)" stroke-width="1.6"/>
   </g>
   <g id="Bounding Box" inkscape:groupmode="layer" inkscape:label="Bounding Box">
-    <rect x="0" y="0" width="533.137" height="1010.163" fill="rgb(255,0,128)" fill-opacity="0" stroke="rgb(51,51,51)" stroke-width="0.96"/>
+    <rect x="0" y="0" width="1755.117" height="1010.163" fill="rgb(255,0,128)" fill-opacity="0" stroke="rgb(51,51,51)" stroke-width="0.96"/>
   </g>
   <g id="Guide Lines" inkscape:groupmode="layer" inkscape:label="Guide Lines">
     <g>
-      <path d="M92.069,769.075 L450.151,769.075" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M48,601.796 L485.137,601.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M48,409.796 L485.137,409.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M49.487,378.014 L483.956,378.014" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M127.576,190.961 L421.963,190.961" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M287.428,69.429 L295.057,69.429" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M485.137,770.163 L485.137,770.163" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M485.137,601.796 L485.137,601.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M485.137,409.796 L485.137,409.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M485.137,378.007 L485.137,378.007" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M485.137,187.913 L485.137,187.913" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M485.137,48 L485.137,48" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M450.151,769.075 L92.069,769.075" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M485.137,601.796 L48,601.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M485.137,409.796 L48,409.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M483.956,378.014 L49.487,378.014" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M421.963,190.961 L127.576,190.961" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
-      <path d="M295.057,69.429 L287.428,69.429" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M107.534,769.075 L591.272,769.075" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M48,601.796 L638.535,601.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M48,409.796 L638.535,409.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M50.009,378.014 L636.94,378.014" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M155.5,190.961 L553.192,190.961" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M371.448,69.429 L381.754,69.429" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M681.762,770.163 L1073.355,770.163" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M638.535,601.796 L1116.581,601.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M638.535,409.796 L1116.581,409.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M639.994,378.007 L1115.123,378.007" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M716.59,187.913 L1038.527,187.913" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M873.387,48 L881.73,48" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1163.845,769.075 L1647.583,769.075" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1116.581,601.796 L1707.117,601.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1116.581,409.796 L1707.117,409.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1118.176,378.014 L1705.108,378.014" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1201.925,190.961 L1599.616,190.961" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1373.363,69.429 L1383.669,69.429" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
     </g>
   </g>
   <g id="Notes" inkscape:groupmode="layer" inkscape:label="Notes">
     <text x="14.4" y="729.363" font-family="Roboto" font-size="24" fill="rgb(0,0,0)" text-anchor="middle" dominant-baseline="central" transform="rotate(-90,14.4,729.363)">ellipsoid_a3.75in_b2.88in_c3.00in.svg</text>
-    <text x="9.6" y="14.4" font-family="Courier New" font-size="3.07" fill="rgb(0,0,0)">{&quot;a&quot;:3.75,&quot;b&quot;:2.875,&quot;c&quot;:3.0,&quot;h_top&quot;:0.0,&quot;h_middle&quot;:2.0,&quot;h_bottom&quot;:2.0,&quot;h_top_fraction&quot;:1.0,&quot;h_top_shift&quot;:0.0,&quot;phi_divisions&quot;:3,&quot;theta_divisions&quot;:3,&quot;theta_min&quot;:-35.0,&quot;theta_max&quot;:90.0,&quot;unit&quot;:&quot;in&quot;,&quot;image_offset&quot;:0.5,&quot;min_gap&quot;:0.001,&quot;projection&quot;:&quot;cylindrical&quot;,&quot;inkscape_layers&quot;:true}</text>
+    <text x="9.6" y="14.4" font-family="Courier New" font-size="10.37" fill="rgb(0,0,0)">{&quot;a&quot;:3.75,&quot;b&quot;:2.875,&quot;c&quot;:3.0,&quot;h_top&quot;:0.0,&quot;h_middle&quot;:2.0,&quot;h_bottom&quot;:2.0,&quot;h_top_fraction&quot;:1.0,&quot;h_top_shift&quot;:0.0,&quot;phi_divisions&quot;:3,&quot;theta_divisions&quot;:3,&quot;theta_min&quot;:-35.0,&quot;theta_max&quot;:90.0,&quot;unit&quot;:&quot;in&quot;,&quot;image_offset&quot;:0.5,&quot;min_gap&quot;:0.001,&quot;projection&quot;:&quot;cylindrical&quot;,&quot;inkscape_layers&quot;:true}</text>
     <path d="M48,1010.163 L48,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
     <path d="M48,1010.163 L48,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
     <text x="48" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">0in</text>
@@ -40,5 +40,31 @@
     <text x="240" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">2in</text>
     <path d="M336,1010.163 L336,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
     <text x="336" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">3in</text>
+    <path d="M432,1010.163 L432,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="432" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">4in</text>
+    <path d="M528,1010.163 L528,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="528" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">5in</text>
+    <path d="M624,1010.163 L624,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="624" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">6in</text>
+    <path d="M720,1010.163 L720,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="720" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">7in</text>
+    <path d="M816,1010.163 L816,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="816" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">8in</text>
+    <path d="M912,1010.163 L912,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="912" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">9in</text>
+    <path d="M1008,1010.163 L1008,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1008" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">10in</text>
+    <path d="M1104,1010.163 L1104,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1104" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">11in</text>
+    <path d="M1200,1010.163 L1200,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1200" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">12in</text>
+    <path d="M1296,1010.163 L1296,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1296" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">13in</text>
+    <path d="M1392,1010.163 L1392,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1392" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">14in</text>
+    <path d="M1488,1010.163 L1488,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1488" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">15in</text>
+    <path d="M1584,1010.163 L1584,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1584" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">16in</text>
   </g>
 </svg>

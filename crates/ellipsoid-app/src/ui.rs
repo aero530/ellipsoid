@@ -12,7 +12,7 @@ use ellipsoid_pattern::{SvgOptions, to_svg};
 
 use crate::platform::{self, Saved};
 use crate::preview;
-use crate::state::{AppState, Status};
+use crate::state::{AppState, Status, SurfaceMaterial};
 use crate::viewport::{PendingPick, PickAction, ViewKind, Viewports};
 
 /// Unbounded above; the original left most maxima open too.
@@ -22,7 +22,9 @@ pub fn draw(
     mut contexts: EguiContexts,
     mut state: ResMut<AppState>,
     mut viewports: ResMut<Viewports>,
+    windows: Query<&Window>,
 ) -> Result {
+    let window_height = windows.iter().next().map(|w| w.height()).unwrap_or(0.0);
     // Texture ids must be resolved before `ctx_mut` borrows `contexts`.
     let textures: Vec<(ViewKind, Option<egui::TextureId>)> = ViewKind::ALL
         .into_iter()
@@ -50,11 +52,15 @@ pub fn draw(
     // panels neither reserve space nor render inside this background-layer
     // viewport Ui — verified with `exact_size(80)` and a debug rect, while top
     // and left panels behave normally. Not worth chasing for a status line.
-    egui::Panel::top("toolbar").show(&mut viewport_ui, |ui| {
-        toolbar(ui, &mut state);
-        ui.separator();
-        status_bar(ui, &state);
-    });
+    let toolbar_height = egui::Panel::top("toolbar")
+        .show(&mut viewport_ui, |ui| {
+            toolbar(ui, &mut state);
+            ui.separator();
+            status_bar(ui, &state);
+        })
+        .response
+        .rect
+        .height();
     egui::Panel::left("settings")
         .default_size(320.0)
         .resizable(true)
@@ -67,10 +73,12 @@ pub fn draw(
     // Stacking left panels gives the original's settings | 3D | pattern
     // arrangement anyway.
     egui::Panel::left("views")
-        .default_size(320.0)
+        .default_size(views_width(&viewport_ui, toolbar_height, window_height))
         .resizable(true)
         .show(&mut viewport_ui, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| views_panel(ui, &mut viewports, &textures));
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                views_panel(ui, &mut state, &mut viewports, &textures, window_height)
+            });
         });
     egui::CentralPanel::default().show(&mut viewport_ui, |ui| preview_area(ui, &mut state));
 
@@ -81,21 +89,73 @@ pub fn draw(
 // 3D views
 // ---------------------------------------------------------------------------
 
+/// Smallest a view is allowed to get before the column scrolls instead.
+const MIN_VIEW: f32 = 96.0;
+
+/// Everything stacked with the two views that is not a view: a title above each
+/// one, the two hint lines below, and the gaps between them all.
+fn views_chrome(ui: &egui::Ui, gaps: f32) -> f32 {
+    2.0 * ui.text_style_height(&egui::TextStyle::Body)
+        + 2.0 * ui.text_style_height(&egui::TextStyle::Small)
+        + gaps * ui.spacing().item_spacing.y
+}
+
+/// Default width of the 3D column: the one that has the two views fill the
+/// window's height at 4:3 each.
+///
+/// Only the starting width — [`views_panel`] sizes the views from the height
+/// actually available, so dragging the splitter changes their aspect rather than
+/// whether they fit. Getting this right just means they begin square-ish instead
+/// of letterboxed, with the flat pattern taking everything left over.
+fn views_width(ui: &egui::Ui, toolbar_height: f32, window_height: f32) -> f32 {
+    // Two more gaps than `views_panel` counts, and the material row: it measures
+    // from a cursor already past both.
+    let chrome = views_chrome(ui, 7.0) + ui.spacing().interact_size.y;
+    let for_views = window_height - toolbar_height - chrome;
+    (for_views / 2.0).max(MIN_VIEW) * 4.0 / 3.0
+}
+
 /// Show both off-screen renders, stacked, and record their size and hover state
 /// so [`crate::viewport`] can resize the textures and route camera input.
 fn views_panel(
     ui: &mut egui::Ui,
+    state: &mut AppState,
     viewports: &mut Viewports,
     textures: &[(ViewKind, Option<egui::TextureId>)],
+    window_height: f32,
 ) {
-    // Sized from the panel's *width*, not its height.
+    ui.horizontal(|ui| {
+        ui.label("Material");
+        egui::ComboBox::from_id_salt("material")
+            .selected_text(state.material.label())
+            .show_ui(ui, |ui| {
+                for material in SurfaceMaterial::ALL {
+                    ui.selectable_value(&mut state.material, material, material.label());
+                }
+            })
+            .response
+            .on_hover_text("The UV grid puts one tile per panel cell, the same way in both views");
+    });
+
+    // Each view takes half of whatever height is really left, so the pair of
+    // them fills the window instead of leaving a gap under the second one.
     //
-    // `available_height` reports far more space than is actually on screen here
-    // — enough that the second view landed below the window entirely. Width is
-    // reliable, so each view is a fixed 4:3 of it and the panel scrolls if
-    // there is not room for both.
+    // Neither obvious source of that height works. `available_height` reports
+    // far more space than exists inside a panel on this background-layer Ui —
+    // enough that the second view once landed below the window entirely. And
+    // `ctx.viewport_rect()`, which is in points on every later frame, reports
+    // *physical pixels* on the first one, so on a 150% display it starts out
+    // half again too tall. The window's own height is right from the first frame
+    // and is in points, since bevy_egui matches egui's scale to the window's.
+    //
+    // `cursor` is reliable, and is exactly where the first view will go, so the
+    // two together give the height that is really left. The panel still scrolls
+    // if the window is too short for `MIN_VIEW`.
     let width = ui.available_width().max(64.0);
-    let each = width * 0.75;
+    let left = window_height - ui.cursor().top() - views_chrome(ui, 5.0);
+    // A point in hand, so rounding cannot summon a scrollbar — which would take
+    // width from the views for no reason.
+    let each = ((left - 1.0) / 2.0).max(MIN_VIEW);
     let mut pending = None;
 
     for (kind, texture) in textures {
@@ -526,10 +586,18 @@ fn cutouts_section(ui: &mut egui::Ui, state: &mut AppState) {
 
     if ui.button("Clear all").clicked() {
         state.input.cutouts.clear();
+        // Nothing left to be editing or dragging.
+        state.editing = None;
+        state.drag = None;
         changed = true;
     }
     if let Some(i) = remove {
-        state.input.cutouts.remove(i);
+        crate::state::forget_cutout(
+            &mut state.input.cutouts,
+            &mut state.editing,
+            &mut state.drag,
+            i,
+        );
         changed = true;
     }
     if changed {

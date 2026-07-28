@@ -47,6 +47,43 @@ pub fn angle_between_planes(a: DVec3, b: DVec3, c: DVec3, d: DVec3) -> f64 {
     .acos()
 }
 
+/// The angle that swings the half-plane `ABC` about `AB` until it continues the
+/// half-plane `ABD` — the angle that flattens the fold along `AB`.
+///
+/// [`angle_between_planes`] answers a different question. It reports the acute
+/// angle between two *planes*, which happens to equal this whenever the two
+/// *half-planes* meet obtusely: the unfold is `π − θ`, and for `θ > π/2` the
+/// acute angle between the planes is `π − θ` as well. When the halves meet
+/// acutely the two part company — the acute angle is `θ` itself, and unfolding
+/// by it leaves the fold half-closed.
+///
+/// The original never made the distinction, and it does not matter for most of
+/// the unrolling, where consecutive rows of a smooth surface meet at very nearly
+/// a straight angle. It matters when unwrapping a cylinder of **three or four
+/// strips**, where the strips genuinely meet at an acute angle. See
+/// [`crate::flatten`] and the plan's §8.8.
+pub fn unfold_angle(a: DVec3, b: DVec3, c: DVec3, d: DVec3) -> f64 {
+    let angle = angle_between_planes(a, b, c, d);
+    if half_planes_meet_acutely(a, b, c, d) {
+        std::f64::consts::PI - angle
+    } else {
+        angle
+    }
+}
+
+/// Whether the half-planes `ABC` and `ABD` meet at less than a right angle.
+///
+/// Measured on the components of `C` and `D` perpendicular to `AB`, which is
+/// what distinguishes the two half-planes; the planes themselves cannot tell.
+fn half_planes_meet_acutely(a: DVec3, b: DVec3, c: DVec3, d: DVec3) -> bool {
+    let axis = (b - a).normalize_or_zero();
+    let across = |p: DVec3| {
+        let offset = p - a;
+        offset - axis * offset.dot(axis)
+    };
+    across(c).dot(across(d)) > 0.0
+}
+
 /// Rotate `p0` about the axis through `p1` and `p2` by `theta` radians.
 ///
 /// Rodrigues' rotation, built as an explicit matrix exactly as the original
@@ -195,6 +232,37 @@ mod tests {
         // The abs() on the dot product forces the acute angle, so swapping the
         // two off-edge points cannot change the result.
         assert_eq!(angle, angle_between_planes(a, b, d, c));
+    }
+
+    /// The angle that flattens a fold, whichever way the fold leans. Plan §8.8.
+    #[test]
+    fn unfold_angle_flattens_the_fold() {
+        let a = DVec3::ZERO;
+        let b = DVec3::new(1.0, 0.0, 0.0);
+        // The reference half-plane, pointing along +y.
+        let d = DVec3::new(0.5, 1.0, 0.0);
+
+        for degrees in [10.0, 45.0, 89.0, 90.0, 91.0, 135.0, 170.0] {
+            let fold = degrees * PI / 180.0;
+            // A half-plane `fold` away from `d`, about the x axis.
+            let c = DVec3::new(0.5, fold.cos(), fold.sin());
+
+            let unfold = unfold_angle(a, b, c, d);
+            assert!(
+                (unfold - (PI - fold)).abs() < 1e-12,
+                "{degrees}°: unfold {unfold} wanted {}",
+                PI - fold
+            );
+
+            // Which is what `angle_between_planes` gives only for obtuse folds —
+            // the whole point of the distinction.
+            let acute = angle_between_planes(a, b, c, d);
+            if degrees > 90.0 {
+                assert!((acute - unfold).abs() < 1e-12, "{degrees}°");
+            } else if degrees < 90.0 {
+                assert!(acute < unfold, "{degrees}°: {acute} vs {unfold}");
+            }
+        }
     }
 
     #[test]

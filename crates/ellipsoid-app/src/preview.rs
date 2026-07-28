@@ -170,11 +170,17 @@ pub fn show_editable(ui: &mut egui::Ui, state: &mut AppState) -> egui::Response 
                     }
                 }
                 Grab::Vertex(index, vertex) => {
-                    if let Some(Cutout::Polygon { points }) = input.cutouts.get_mut(index)
+                    if let Some(cutout) = input.cutouts.get_mut(index)
+                        && let Cutout::Polygon { points } = cutout
                         && let Some(point) = points.get_mut(vertex)
                     {
-                        point[0] = (point[0] + u - gu).rem_euclid(1.0);
+                        // Not wrapped here: a vertex pushed past the seam has to
+                        // stay on the same side of its neighbours or the shape
+                        // tears. `renormalise_wrap` puts the whole thing back in
+                        // range afterwards, by whole turns.
+                        point[0] += u - gu;
                         point[1] = (point[1] + v - gv).clamp(0.0, 1.0);
+                        cutout.renormalise_wrap();
                         changed = true;
                     }
                 }
@@ -224,7 +230,7 @@ pub fn show_editable(ui: &mut egui::Ui, state: &mut AppState) -> egui::Response 
             match nearest {
                 Some(Grab::Cutout(index)) => {
                     let what = input.cutouts[index].describe();
-                    input.cutouts.remove(index);
+                    crate::state::forget_cutout(&mut input.cutouts, editing, drag, index);
                     *status = Some(Status::info(format!("Removed {what}")));
                     changed = true;
                 }

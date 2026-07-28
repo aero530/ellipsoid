@@ -91,7 +91,10 @@ impl Cutout {
                 let (su, sv) = points
                     .iter()
                     .fold((0.0, 0.0), |(su, sv), p| (su + p[0], sv + p[1]));
-                (su / n, sv / n)
+                // Wrapped only here, and only after averaging: averaging
+                // already-wrapped values is what puts the anchor of a shape
+                // straddling `u = 0` on the opposite side of the pattern.
+                ((su / n).rem_euclid(1.0), sv / n)
             }
         }
     }
@@ -110,10 +113,12 @@ impl Cutout {
                     (lo.min(p[1]), hi.max(p[1]))
                 });
                 let dv = dv.clamp(-lo, 1.0 - hi);
-                for p in points {
-                    p[0] = (p[0] + du).rem_euclid(1.0);
+                for p in points.iter_mut() {
+                    // No wrapping per vertex — see `renormalise`.
+                    p[0] += du;
                     p[1] += dv;
                 }
+                renormalise(points);
             }
         }
     }
@@ -130,10 +135,46 @@ impl Cutout {
         }
     }
 
+    /// Bring a polygon's vertices back within reach of `0..1` without tearing
+    /// it, after something has moved them.
+    ///
+    /// Call this rather than wrapping vertices individually. `u` wraps, so a
+    /// shape can legitimately straddle `u = 0` — and then some of its vertices
+    /// belong past 1 or below 0. Wrapping each one on its own splits the shape
+    /// across the full width of the pattern instead: an 0.08-wide square dragged
+    /// over the seam became 0.92 wide, and its anchor jumped to the far side.
+    ///
+    /// Everything downstream is built for the coherent form — `ellipsoid_pattern`
+    /// indexes strips with a signed integer, and the 3D domain offers each rim
+    /// shifted a turn either way — so the whole shape is moved by whole turns
+    /// only, and its width never changes.
+    pub fn renormalise_wrap(&mut self) {
+        if let Cutout::Polygon { points } = self {
+            renormalise(points);
+        }
+    }
+
     pub fn describe(&self) -> &'static str {
         match self {
             Cutout::Hole { .. } => "hole",
             Cutout::Polygon { .. } => "shape",
+        }
+    }
+}
+
+/// Shift a polygon by whole turns so its mean `u` lands in `0..1`.
+///
+/// Whole turns only, so the shape's width and its vertices' relationship to one
+/// another are untouched. See [`Cutout::renormalise_wrap`].
+fn renormalise(points: &mut [[f64; 2]]) {
+    if points.is_empty() {
+        return;
+    }
+    let mean = points.iter().map(|p| p[0]).sum::<f64>() / points.len() as f64;
+    let turns = mean.div_euclid(1.0);
+    if turns != 0.0 {
+        for p in points {
+            p[0] -= turns;
         }
     }
 }
@@ -439,10 +480,28 @@ pub struct FlatJacobian {
 
 impl FlatJacobian {
     /// The `(du, dv)` that produces a given displacement on the page.
+    ///
+    /// Returns `(0, 0)` when the map is too ill-conditioned to invert
+    /// meaningfully — a cell that collapses to a line or a point on the page has
+    /// no `(du, dv)` that produces a displacement across it.
+    ///
+    /// The test is on the conditioning, not on the determinant alone. A
+    /// determinant is only small or large *relative to the entries*: this
+    /// Jacobian's are drawing units per surface unit, so on a millimetre pattern
+    /// they run into the thousands and an absolute threshold means nothing. For
+    /// a 2×2, `σ_min = |det| / σ_max`, so comparing `|det|` against the squared
+    /// Frobenius norm bounds the condition number — here at `1e12`, which is
+    /// twelve orders of magnitude clear of any cell a real pattern contains.
+    ///
+    /// Worth being strict about: dividing by a determinant of `8e-14` built from
+    /// entries of order `10` once returned a displacement of `4e13` surface
+    /// units, and the caller then walked the strips it spanned. See the plan's
+    /// §8.8.
     pub fn solve(&self, dx: f64, dy: f64) -> (f64, f64) {
         let [[a, b], [c, d]] = self.m;
         let det = a * d - b * c;
-        if det.abs() < 1e-18 {
+        let frobenius_squared = a * a + b * b + c * c + d * d;
+        if det.abs() <= 1e-12 * frobenius_squared {
             return (0.0, 0.0);
         }
         (((d * dx) - (b * dy)) / det, ((a * dy) - (c * dx)) / det)
@@ -851,5 +910,102 @@ mod tests {
     fn default_diameter_is_three_millimetres() {
         assert!((Cutout::default_diameter(Unit::Mm) - 3.0).abs() < 1e-12);
         assert!((Cutout::default_diameter(Unit::Inch) - 3.0 / 25.4).abs() < 1e-6);
+    }
+
+    /// Dragging a shape over `u = 0` must move it, not tear it.
+    ///
+    /// `u` wraps, so a shape can legitimately straddle the seam. Wrapping each
+    /// vertex on its own instead splits it across the whole pattern: this
+    /// 0.08-wide square came out 0.92 wide, with its anchor thrown to the
+    /// opposite side.
+    #[test]
+    fn a_shape_dragged_over_the_seam_keeps_its_shape() {
+        let width = |c: &Cutout| match c {
+            Cutout::Polygon { points } => {
+                let (lo, hi) = points
+                    .iter()
+                    .fold((f64::MAX, f64::MIN), |(l, h), p| (l.min(p[0]), h.max(p[0])));
+                hi - lo
+            }
+            _ => unreachable!(),
+        };
+
+        let mut shape = Cutout::polygon(vec![[0.90, 0.4], [0.98, 0.4], [0.98, 0.6], [0.90, 0.6]]);
+        let before = width(&shape);
+
+        // Nudge it over the seam in small steps, as a drag would. The mean
+        // starts at 0.94, so it is astride the seam from step 4 to step 8.
+        for step in 1..=12 {
+            shape.translate(0.01, 0.0);
+            assert!(
+                (width(&shape) - before).abs() < 1e-12,
+                "step {step}: width changed to {} at anchor {:?}",
+                width(&shape),
+                shape.anchor()
+            );
+
+            // While astride, the anchor has to stay at the seam. Averaging
+            // wrapped vertices instead put it at 0.5 — half a turn away.
+            let (au, _) = shape.anchor();
+            let expected = (0.94 + 0.01 * step as f64).rem_euclid(1.0);
+            let apart = (au - expected).abs().min(1.0 - (au - expected).abs());
+            assert!(
+                apart < 1e-9,
+                "step {step}: anchor {au}, expected {expected}"
+            );
+        }
+    }
+
+    /// A cell that collapses on the page has no inverse worth having. Plan §8.8.
+    #[test]
+    fn an_edge_on_cell_refuses_to_be_inverted() {
+        // What three strips actually produced: a `∂/∂u` column of numerical
+        // noise beside a healthy `∂/∂v`. Its determinant is 8e-14 — far above
+        // any absolute epsilon, and meaningless all the same.
+        let collapsed = FlatJacobian {
+            m: [[8.0e-15, 0.0], [-1.2e-15, 10.129]],
+        };
+        assert_eq!(collapsed.solve(0.35, 0.0), (0.0, 0.0));
+
+        // A real cell from the same pattern, inverted as usual.
+        let healthy = FlatJacobian {
+            m: [[10.9539, 3.9677], [0.0, 10.4187]],
+        };
+        let (du, dv) = healthy.solve(0.35, 0.0);
+        assert!(du.abs() < 1.0 && dv.abs() < 1.0, "({du}, {dv})");
+        let back = (
+            healthy.m[0][0] * du + healthy.m[0][1] * dv,
+            healthy.m[1][0] * du + healthy.m[1][1] * dv,
+        );
+        assert!(
+            (back.0 - 0.35).abs() < 1e-12 && back.1.abs() < 1e-12,
+            "{back:?}"
+        );
+
+        // Scale-free: the same shape of cell in millimetres, where every entry
+        // is 25x larger, must be treated the same way.
+        let millimetres = FlatJacobian {
+            m: [[278.2, 100.8], [0.0, 264.6]],
+        };
+        assert_ne!(millimetres.solve(8.9, 0.0), (0.0, 0.0));
+    }
+
+    /// And going all the way round returns it to where it started.
+    #[test]
+    fn a_shape_taken_right_around_comes_back() {
+        let start = vec![[0.30, 0.4], [0.38, 0.4], [0.38, 0.6], [0.30, 0.6]];
+        let mut shape = Cutout::polygon(start.clone());
+        for _ in 0..100 {
+            shape.translate(0.01, 0.0);
+        }
+        let Cutout::Polygon { points } = &shape else {
+            unreachable!()
+        };
+        for (got, want) in points.iter().zip(&start) {
+            assert!(
+                (got[0] - want[0]).abs() < 1e-9 && (got[1] - want[1]).abs() < 1e-9,
+                "{got:?} vs {want:?}"
+            );
+        }
     }
 }

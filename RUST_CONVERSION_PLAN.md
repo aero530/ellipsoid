@@ -449,6 +449,26 @@ There's no filesystem in the browser. The trait in Phase 7 handles it, but note 
 
    Ported as-is and covered by the layout goldens. Worth a look before fixing: the spherical pattern is radially symmetric enough that a vertical flip may go unnoticed on the outline itself, but the green guide lines would land on the wrong side of it. Cylindrical is unaffected, and it is the default.
 
+8. **The cylinder is unwrapped with the acute angle, which is the wrong one below five strips.** ✅ **FIXED** — see Appendix T. *(Found from a bug report: the app froze on setting Divisions to 3.)* Unwrapping needs `π − θ` for a fold of `θ`. `angleBetweenPlanes` takes `Math.abs` of the dot product and so returns the acute angle between the two *planes*, which equals `π − θ` only while `θ > π/2`. From five strips up it always is, and the wrong function gives the right answer; at three and four strips the strips genuinely meet acutely, and each was left short of the page by the supplement of its own fold. At three strips one panel came out edge-on — zero width on the page — and the third folded back over the first.
+
+   Downstream, fitting a hole's rim in an edge-on panel divided by a determinant of `8e-14` and asked for a hole `1e14` wide, which `pieces` then walked one strip at a time: ~3e14 clips, indistinguishable from a hang.
+
+9. **A *shaped* top extension is not brought into the drawing plane.** ✅ **FIXED** — see Appendix V. *(Found by the invariant added for §8.8.)* With `hTop > 0`, `hTopFraction = 1` and `hTopShift = 0` the pattern was exactly planar. Change either — a scaled or shifted top ring — and the extension rows landed out of the plane the pattern is drawn in, so the drawing showed their *projection*: shortened.
+
+   Measured across the matrix before the fix, worst first:
+
+   | Case | Worst edge drawn short | Strip 0's whole edge |
+   | --- | --- | --- |
+   | `h_top_shaped_spherical` | 0.86 (36% of that edge) | 24.3% short |
+   | `h_top_fraction_large_spherical` | 0.58 (36%) | 6.0% short |
+   | `h_top_fraction_large_cylindrical` | 0.39 (24%) | 3.2% short |
+   | `h_top_shaped_cylindrical` | 0.04 (1.8%) | 0.35% short |
+   | `h_top_*` (unshaped) | 0 | 0 |
+
+   Three folds — two spherical, one cylindrical — were *guessed* rather than measured: negated at one, hardcoded to `PI / 2.0` at another. Both guesses are exactly right for a ring that is neither scaled nor shifted, and wrong as soon as it is. Replacing each guess with a computed signed rotation fixes all four cases and leaves every other fold in the codebase untouched.
+
+   **§8.8's `unfold_angle` was not the fix** — substituting it made `h_top_fraction_large_spherical` worse, 6.0% → 34.6% short, because it only chooses a magnitude and these folds needed a sign too.
+
 ---
 
 ## 9. Testing strategy
@@ -1262,3 +1282,231 @@ Cutouts are the exception, and they are placed through the same function. A hole
 `a_cutout_lands_where_the_guides_put_its_surface_point` asserts a hole's ring centroid coincides with `place(flat_point(u, v))`, in both projections. Deliberately end-to-end rather than on the transform: `place_outline == place` is now true by construction and a test at that level would pass no matter what the rest of the layout did.
 
 That invariant is the one worth having anyway — a cutout you cannot locate relative to the fold lines is not much use — and it is what the earlier geometric probes were groping for.
+
+## Appendix S — A pass over the app looking for bugs
+
+Two real defects, both about *indices being used as if they were identities*. The core math itself came out clean.
+
+### The core math holds up
+
+Checked as properties across the parameter matrix rather than by reading:
+
+| | |
+| --- | --- |
+| `flat_to_surface ∘ flat_point` round trip | 5.6e-16 worst, both projections |
+| `surface_point` at grid corners vs `geometry.points` | 6.7e-16 worst |
+| `row_v_span` summed over theta rows | 1.000000000000 |
+| `v` monotone in theta index | yes |
+| hole translated `+0.8` then `−0.8` | back to 0.3 |
+
+Together with the isometry invariant and the 63-case snapshots, that is the geometry pipeline covered from both directions — pinned behaviour *and* properties that say the numbers are right.
+
+### A shape dragged over `u = 0` tore itself apart
+
+`Cutout::translate` wrapped **each vertex** with `rem_euclid(1.0)`. `u` wraps, so a shape may legitimately straddle the seam — with some vertices past 1 or below 0. Wrapping them individually instead scattered them to opposite ends of the range: an 0.08-wide square dragged over the seam came out **0.92 wide**, spanning almost the whole pattern, and `anchor` — averaging the already-wrapped values — put its handle half a turn away.
+
+The irony is that the comment above the loop already said "move as a unit … rather than clamping each vertex and deforming it". That reasoning had been applied to `v` and not to `u`.
+
+Vertices are now kept in a coherent frame and only the whole shape is wrapped, by whole turns, so its width cannot change. Everything downstream was already built for this: `pieces` indexes strips with a *signed* integer, and `surface_domain` offers every rim shifted a turn either way. The preview's single-vertex drag had the same `rem_euclid` and gets the same treatment.
+
+Verified end to end: a shape at `u ∈ [−0.04, 0.04]` now cuts two notches, one at each end of the cylindrical pattern, of equal depth (≈71 units) over the same rows — the two halves that meet when the cylinder closes.
+
+### Removing a cutout silently retargeted the point editor
+
+`editing` and `drag` are positions in `cutouts`. Three separate places removed an entry without touching them, so shift-clicking one shape away slid the rest down and moved the point editor onto a *neighbour* — indistinguishable, from the outside, from the app ignoring the click. `Clear all` left `editing` pointing into an empty list.
+
+All four now go through `forget_cutout`, which drops the index if it was the one removed and decrements it if it was later. One place to get right rather than four to remember.
+
+### Looked at and left alone
+
+**Switching units reinterprets rather than converts.** `new_cutout_diameter` shows 0.1181 with an `in` suffix, and switching to mm leaves the number and changes the suffix — a 0.1181 mm hole. Surprising, but `a`, `b`, `c` and every other length behave the same way, and that is the legacy behaviour §12.7 deliberately kept. Changing it for one field only would be worse than either.
+
+**A hand-written polygon with pre-wrapped vertices** — say `0.98` and `0.02` — is genuinely ambiguous: nothing can tell an 0.04-wide shape at the seam from a 0.96-wide one spanning the other way. `renormalise` does not try to guess, which is right; the coherent form is what the app writes and what documents should use.
+
+## Appendix T — A material selector for the 3D views
+
+A **Material** dropdown above the two views, offering `UV grid` (the default) and `Solid` — the flat blue the views had until now. One choice drives both views.
+
+### The meshes had nothing to sample
+
+The blocker was not the material but the geometry: both meshes carried POSITION and NORMAL only, so any texture would have had no coordinates to look up. The natural choice was already to hand — the surface parametrisation `(u, v)` that the whole pipeline is built on:
+
+```rust
+fn grid_uv(param: &SurfaceParam, uv: DVec2) -> [f32; 2] {
+    [(uv.x * param.phi_divisions as f64) as f32,
+     (uv.y * param.theta_divisions as f64) as f32]
+}
+```
+
+Scaled to one texture tile per grid cell, with the sampler set to `Repeat` and nearest-neighbour magnification, so the texel boundaries are the thing you see. Because the flattened mesh shares the same `(u, v)` — that is what makes the piecewise-affine mapping work at all — **the texture lands identically on the ellipsoid and on the flattened panels**, and a point on the shell can be found on the pattern by eye. That is worth more here than a generic checkerboard would have been.
+
+The flat mesh also gained `with_computed_smooth_normals()` at this point; it had been relying on the default.
+
+### Two finishes per view, built up front
+
+The two views cannot share a material: only the flat one is `double_sided` (Appendix K — lighting the shell's back faces by a flipped normal makes a hole through it invisible). So each view owns both finishes, built at startup, and switching is a handle assignment — `sync_material` never allocates, creates, or drops an asset.
+
+Pulled the construction out of `setup` into `finishes(kind, texture, materials)` so a test can see what a view is actually given, then covered it four ways:
+
+| | |
+| --- | --- |
+| `only_the_grid_finish_carries_the_texture` | solid has no texture; grid samples the debug image and is untinted white |
+| `a_hole_in_the_shell_stays_readable_in_either_finish` | `cull_mode: None` both; `double_sided` iff flat |
+| `both_views_start_in_the_grid_finish` | the default reaches the mesh entities |
+| `choosing_a_finish_puts_it_on_both_views` | every choice, twice round, over a real `World` |
+
+Mutation-checked: pointing `Solid` at the textured handle fails the last one.
+
+### Two notes on verifying it
+
+Injected input still cannot reach the winit window — neither `SendInput`/`mouse_event` (clicking the projection radio changed nothing) nor `PostMessage(WM_LBUTTONDOWN/UP)`, though `PostMessage(WM_MOUSEWHEEL)` did work in Appendix Q. So the dropdown could not be driven from outside, which is what pushed the swap into tests rather than a screenshot; the render itself was confirmed by capture.
+
+Also, the first capture appeared to show the ellipsoid camera wildly zoomed in. Instrumenting the refit gave `extent 14.14` for a subject ~9 units tall — correct — and a clean re-run framed it properly. It was a stale window from an earlier probing run, not a regression. Second time in this project (see Appendix O) that a screenshot has been the least reliable thing in the room.
+
+## Appendix U — Divisions = 3 froze the app
+
+Reported as a freeze. It is two defects deep, and the second one was hiding behind the first.
+
+### Reproducing it away from the UI
+
+The CLI froze on the same settings, which took the GUI, the render loop and egui out of the picture in one step. Bisecting from there: only with cutouts, only in the SVG path, only one of the four cutouts, and only at three strips.
+
+| | |
+| --- | --- |
+| `--divisions-phi 3`, with cutouts | hangs |
+| `--divisions-phi 3`, no cutouts | fine |
+| `--divisions-phi 4/5/8`, with cutouts | fine |
+| `--format obj` / `obj-flat` at 3 | fine |
+| the hole at `u 0.55, v 0.72` alone | hangs |
+
+### What the numbers said
+
+Printing the rim fit for that hole:
+
+```
+phi=3: u in [-6.4e13, 5.2e13]   strips -192025408450603 ..= 155771964383219
+phi=4: u in [ 0.5159, 0.5842]   strips 2 ..= 2
+phi=8: u in [ 0.5260, 0.5736]   strips 4 ..= 4
+```
+
+`pieces` walks `first..=last`, clipping a polygon per strip. At three strips that is 3.5e14 iterations — the freeze.
+
+The rim came from a Jacobian of `[[~0, ~0], [~0, 10.13]]`, determinant `8.1e-14`, which `solve` inverted because its guard was an *absolute* `1e-18`. A determinant is only small relative to its entries, and these were of order 10.
+
+Its whole `∂/∂u` column being zero meant the panel had no width **on the page**, and printing the flat corners showed why: panel 1 of 3 ran `(0, 0, 4.44)` — its width entirely in the axis the drawing discards — and panel 2 ran *backwards* over panel 0. The strips had never been brought into a common plane.
+
+### The root cause, §8.8
+
+`angle_between_planes` returns the acute angle. Unwrapping a fold of `θ` needs `π − θ`, and those agree only for `θ > π/2`. Adjacent strips meet obtusely from five strips up, so the wrong function had been giving the right answer everywhere anyone had looked; at three and four strips it is short by the supplement.
+
+`unfold_angle` computes it properly — from the components of the two off-axis points perpendicular to the axis, which is what tells the two *half*-planes apart, since the planes cannot. Below `π/2` it returns `π − θ`; above, it returns exactly what `angle_between_planes` already returned, by the same expression, so **five strips and up do not move by a bit**. One golden case changed: `div_min_cylindrical`.
+
+Applied only to the cylinder unwrap. The within-strip theta folds use the same function, but consecutive rows of a smooth surface meet at very nearly a straight angle, and the measurements say every one of those is already right — except for a shaped top extension, which is §8.9.
+
+### Two guards, so a hang cannot come back this way
+
+Neither is the fix; both are cheap and the failure mode was a frozen app.
+
+- `FlatJacobian::solve` now tests the **conditioning** — `|det| ≤ 1e-12 · ‖J‖²_F` — instead of an absolute determinant. Scale-free, and twelve orders clear of any real cell.
+- `pieces` refuses a rim spanning more than three turns of `u`, matching the bound `densify` already had.
+
+Verified independently: with the layout fix reverted but the guards in place, the hole comes back as *nothing* (span 0) rather than hanging. With both, it comes back 0.7 wide as asked.
+
+### What the invariants now say
+
+The isometry invariant could never have caught this — swinging a strip to the wrong angle is a rigid motion, so every length survives it. Two new ones, over the golden matrix plus a sweep of `phi` 3..13 × `theta` {3,4,7,16} × both projections:
+
+- **`unrolling_lands_in_one_plane`** — a flat pattern is flat. Every point shares one `z`, because the third axis is discarded when drawing.
+- **`cylindrical_gores_are_laid_side_by_side`** — strips join exactly at the widest row (gap `0.0`, not merely small) and follow their phi order along x. Spherical is excluded: it unrolls petals about the pole and stacks them deliberately, and the layout fans them out when drawing.
+
+Both fail on the old code, naming the case and the magnitude. `a_hole_in_a_three_strip_pattern_is_still_a_hole` covers the reported symptom end to end at 3, 4 and 5 strips.
+
+The matrix had sampled divisions at three points and one of them *was* three strips — it had simply snapshotted the broken layout, along with the CLI's own SVG and flat-OBJ snapshots, which use `--divisions-phi 3`. A snapshot pins behaviour; only an invariant says whether it is right.
+
+## Appendix V — §8.9, the folds that were guessed
+
+Found by the invariant written for §8.8, which is the interesting part: the planarity check was added to pin a *fixed* bug and immediately failed on four cases that had nothing to do with it.
+
+### Where the error was, exactly
+
+The out-of-plane spread was large (up to 7.1 units) while the worst *single* edge was drawn only 0.015 short, which reads like a small defect and is not one. A group of rows rotated by a wrong angle stays internally flat and tilts as a unit, so the length lost is spread thinly across many edges and shows up in the total: `h_top_shaped_spherical` drew one strip's whole edge **24% short** — 10.92 units of material as 8.27.
+
+### Measuring every fold instead of reading the code
+
+Rather than reason about the fold structure, the loops were instrumented to print, per fold, the angle used against a signed angle computed from first principles:
+
+```rust
+fn flattening_rotation(p1: DVec3, p2: DVec3, folded: DVec3, fixed: DVec3) -> f64 {
+    let axis = (p2 - p1).normalize_or_zero();
+    let across = |p: DVec3| { let o = p - p1; o - axis * o.dot(axis) };
+    let (from, to) = (across(folded), -across(fixed));
+    from.cross(to).dot(axis).atan2(from.dot(to))
+}
+```
+
+The components perpendicular to the hinge are what distinguish the two half-planes; the `atan2` gives the signed rotation in `rotate_point`'s own convention, so the result can be handed straight to it. Correct whatever the fold — acute, obtuse or reflex.
+
+Across all 63 cases, disagreements above `1e-9` appeared at exactly three sites, and only when the top ring was shaped:
+
+| Branch | Fold | Guessed | Actual |
+| --- | --- | --- | --- |
+| spherical | `it = td − 2` | `−angle` | `+0.093934` against `−0.093934` — sign |
+| spherical | `it = td − 1` | `PI / 2.0` | `0.688`, `0.898`, `1.112`, `1.245` — differs per strip |
+| cylindrical up | `it = td` | `−angle` | `−1.929` against `−1.213` — acute where obtuse |
+
+Every other fold in the codebase already agreed, to `1e-15`. That is what made the fix surgical: replace the three guesses, leave the several thousand correct folds alone.
+
+The `PI / 2.0` row is the giveaway. One hardcoded number cannot be right for eight strips of a *shifted* ring, because the shift makes each strip fold differently — and the measured values fan out from 0.688 to 1.245 across them. `an_unshaped_top_ring_really_does_fold_through_a_right_angle` records why nobody noticed: with `hTopFraction = 1` and `hTopShift = 0` the answer is `π/2` to within `1e-9`.
+
+### Blast radius
+
+Deliberately kept to the guessed folds, so cases that were already right stay bit-identical. Four cases changed beyond the `1e-12` snapshot tolerance — `h_top_shaped_*` and `h_top_fraction_large_*`, exactly the shaped tops. Eight more shifted by *less* than the tolerance, from `1e-15` per-fold rounding; `UPDATE_GOLDEN` rewrote them, and they were reverted, because eight files of last-digit churn would bury the four that matter.
+
+### What now holds across the matrix
+
+`a_top_extension_lands_slightly_out_of_plane` — the test written to pin §8.9 while it waited — asserts its own obsolescence, and fired it:
+
+```
+the §8.9 defect appears to be fixed — move these cases into
+`unrolling_lands_in_one_plane` and delete this test
+```
+
+It has been deleted, its cases folded into the general invariant, and a fourth added:
+
+- **`unrolling_lands_in_one_plane`** — now the whole matrix, extensions included.
+- **`nothing_is_drawn_shorter_than_it_is`** — the direct statement of the cost: no edge's drawn length falls below its true length by more than `1e-9`.
+
+Together with isometry, those three say the pattern is a genuine development of the surface: same lengths, one plane, nothing projected away. Isometry alone never could — every one of these bugs was a rigid motion.
+
+## Appendix W — The 3D column fills the window's height
+
+The two 3D views were sized from the panel's *width* — a fixed 4:3 of it each — so at any window taller than about 700 points they left a band of empty panel under the second one. They are now sized from the height actually available, and the column's default width is the one that makes them 4:3 at that height, with the flat pattern taking whatever is left across.
+
+Sizing from height rather than width also removes a feedback loop: a scrollbar appearing no longer changes the views' height, so it cannot appear and disappear on alternate frames.
+
+### The height is surprisingly hard to come by
+
+Three sources, two of them wrong:
+
+| | |
+| --- | --- |
+| `ui.available_height()` | reports far more space than exists inside a panel on this background-layer `Ui` — enough that the second view once landed below the window entirely |
+| `ctx.viewport_rect()` | in points on every frame **except the first**, where it reports physical pixels |
+| `Window::height()` (Bevy) | correct and in points from the first frame |
+
+The middle one cost the most. `Panel::default_size` is consulted only until a `PanelState` exists, so whatever the first frame computes is what gets stored and reused:
+
+```
+frame 1:  viewport 1920x1080  ppp 1.5  ->  width 625.6   <- stored
+frame 3+: viewport 1280x 720  ppp 1.5  ->  width 385.6   <- computed, ignored
+```
+
+The column came out 1.5× too wide and stayed there, and the printed value looked right on every frame after the one that mattered — visible only by reading the *start* of the log rather than the end. Third time on this project that a plausible number turned out to be physical pixels wearing points' clothing (Appendix O, Appendix Q); the giveaway is a factor of exactly the display scale.
+
+`Window::height()` is used for both the default width and the per-frame sizing, so the layout is correct on the first frame and does not shift on the second.
+
+### Behaviour
+
+- Views fill the height at any window size, and keep filling it as the window is resized.
+- The splitter still works; dragging it changes the views' aspect, not whether they fit.
+- Below `MIN_VIEW` (96 points each) the column scrolls instead of shrinking further — checked at a 480-pixel-tall window, where the second view is reachable by scrolling and nothing overlaps.

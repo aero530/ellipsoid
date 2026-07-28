@@ -8,7 +8,9 @@
 //! Each view gets its own render layer so the two cameras do not see each
 //! other's mesh; lights are on both.
 
+use bevy::asset::RenderAssetUsages;
 use bevy::camera::{RenderTarget, ScalingMode, visibility::RenderLayers};
+use bevy::image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor};
 use bevy::prelude::*;
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
@@ -19,7 +21,7 @@ use ellipsoid_core::surface::SurfaceParam;
 use ellipsoid_pattern::surface_domain;
 
 use crate::mesh;
-use crate::state::AppState;
+use crate::state::{AppState, SurfaceMaterial};
 
 /// Which of the two views.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,6 +78,9 @@ pub struct ViewportTarget {
     pub image: Handle<Image>,
     pub camera: Entity,
     pub mesh: Entity,
+    /// The two finishes, built at startup so switching never allocates.
+    pub solid: Handle<StandardMaterial>,
+    pub textured: Handle<StandardMaterial>,
     /// Current texture size.
     pub size: UVec2,
     /// Size the UI would like, applied by [`apply_viewport_sizes`].
@@ -134,6 +139,88 @@ fn render_texture(size: UVec2) -> Image {
     image
 }
 
+/// The colourful test pattern from Bevy's `3d_shapes` example.
+///
+/// Eight by eight, one row of the palette rotated per line, so it reads as a
+/// grid of distinct colours. Sampled with nearest-neighbour and repeated, since
+/// the point is to see the texel boundaries: the mesh's texture coordinates are
+/// the surface parametrisation scaled to one tile per grid cell, so this shows
+/// where the cells are and lands identically on the ellipsoid and the flattened
+/// panels.
+fn uv_debug_texture() -> Image {
+    const TEXTURE_SIZE: usize = 8;
+
+    let mut palette: [u8; 32] = [
+        255, 102, 159, 255, 255, 159, 102, 255, 255, 207, 102, 255, 236, 255, 102, 255, 121, 255,
+        102, 255, 102, 255, 198, 255, 102, 198, 255, 255, 121, 102, 255, 255,
+    ];
+
+    let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
+    for y in 0..TEXTURE_SIZE {
+        let offset = TEXTURE_SIZE * y * 4;
+        texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
+        palette.rotate_right(4);
+    }
+
+    let mut image = Image::new_fill(
+        Extent3d {
+            width: TEXTURE_SIZE as u32,
+            height: TEXTURE_SIZE as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &texture_data,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+    image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+        address_mode_u: ImageAddressMode::Repeat,
+        address_mode_v: ImageAddressMode::Repeat,
+        mag_filter: ImageFilterMode::Nearest,
+        min_filter: ImageFilterMode::Linear,
+        ..default()
+    });
+    image
+}
+
+/// Build one view's two finishes.
+///
+/// Back faces are always drawn — nothing may vanish because a triangle happens
+/// to be wound away from the camera.
+///
+/// Whether they are *lit* as if they faced the camera differs by view. A
+/// flattened panel strip is legitimately viewed from either face, so it stays
+/// double-sided, as the original's `THREE.DoubleSide` did. The ellipsoid must
+/// not: flipping the normal shades the inside of the shell exactly like the
+/// outside, which makes a hole cut through it invisible. Lit by its true normal
+/// the interior falls into shadow and the hole reads as one.
+///
+/// That face-lighting difference is why the finishes are built per view rather
+/// than shared, and both are built up front so switching never allocates.
+fn finishes(
+    kind: ViewKind,
+    debug_texture: &Handle<Image>,
+    materials: &mut Assets<StandardMaterial>,
+) -> (Handle<StandardMaterial>, Handle<StandardMaterial>) {
+    let shared = StandardMaterial {
+        perceptual_roughness: 0.6,
+        double_sided: kind == ViewKind::Flat,
+        cull_mode: None,
+        ..default()
+    };
+    let solid = materials.add(StandardMaterial {
+        base_color: Color::srgb_u8(0x00, 0x87, 0xE6),
+        ..shared.clone()
+    });
+    let textured = materials.add(StandardMaterial {
+        // White, or the tint would fight the texture's own colours.
+        base_color: Color::WHITE,
+        base_color_texture: Some(debug_texture.clone()),
+        ..shared
+    });
+    (solid, textured)
+}
+
 pub fn setup(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
@@ -145,6 +232,7 @@ pub fn setup(
     // We supply the egui context ourselves, on a camera that renders nothing.
     egui_settings.auto_create_primary_context = false;
 
+    let debug_texture = images.add(uv_debug_texture());
     let mut views = Vec::new();
 
     for (index, kind) in ViewKind::ALL.into_iter().enumerate() {
@@ -153,28 +241,15 @@ pub fn setup(
 
         let layer = RenderLayers::layer(kind.layer());
 
-        // Back faces are always drawn — nothing may vanish because a triangle
-        // happens to be wound away from the camera.
-        //
-        // Whether they are *lit* as if they faced the camera differs by view.
-        // A flattened panel strip is legitimately viewed from either face, so
-        // it stays double-sided, as the original's `THREE.DoubleSide` did. The
-        // ellipsoid must not: flipping the normal shades the inside of the
-        // shell exactly like the outside, which makes a hole cut through it
-        // invisible. Lit by its true normal the interior falls into shadow and
-        // the hole reads as one.
-        let material = materials.add(StandardMaterial {
-            base_color: Color::srgb_u8(0x00, 0x87, 0xE6),
-            perceptual_roughness: 0.6,
-            double_sided: kind == ViewKind::Flat,
-            cull_mode: None,
-            ..default()
-        });
+        let (solid, textured) = finishes(kind, &debug_texture, &mut materials);
 
         let mesh_entity = commands
             .spawn((
                 Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-                MeshMaterial3d(material),
+                MeshMaterial3d(match SurfaceMaterial::default() {
+                    SurfaceMaterial::Solid => solid.clone(),
+                    SurfaceMaterial::UvDebug => textured.clone(),
+                }),
                 Transform::IDENTITY,
                 layer.clone(),
             ))
@@ -224,6 +299,8 @@ pub fn setup(
             image,
             camera,
             mesh: mesh_entity,
+            solid,
+            textured,
             size: INITIAL_SIZE,
             desired: INITIAL_SIZE,
             hovered: false,
@@ -370,4 +447,166 @@ pub fn route_camera_input(
         window_size: Some(window_size),
         manual: true,
     });
+}
+
+/// Put the chosen finish on both views' meshes.
+///
+/// Both handles already exist, so this only ever swaps which one the mesh
+/// points at — no asset is created or dropped when the selection changes.
+pub fn sync_material(
+    state: Res<AppState>,
+    viewports: Res<Viewports>,
+    mut materials: Query<&mut MeshMaterial3d<StandardMaterial>>,
+    mut last: Local<Option<SurfaceMaterial>>,
+) {
+    if *last == Some(state.material) {
+        return;
+    }
+    *last = Some(state.material);
+
+    for view in &viewports.views {
+        if let Ok(mut slot) = materials.get_mut(view.mesh) {
+            slot.0 = match state.material {
+                SurfaceMaterial::Solid => view.solid.clone(),
+                SurfaceMaterial::UvDebug => view.textured.clone(),
+            };
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::ecs::system::RunSystemOnce;
+
+    /// Two views, each with a mesh entity wearing the default finish.
+    fn two_views() -> (World, Assets<Image>, Assets<StandardMaterial>) {
+        let mut images = Assets::<Image>::default();
+        let mut materials = Assets::<StandardMaterial>::default();
+        let debug_texture = images.add(uv_debug_texture());
+
+        let mut world = World::new();
+        let views = ViewKind::ALL
+            .into_iter()
+            .map(|kind| {
+                let (solid, textured) = finishes(kind, &debug_texture, &mut materials);
+                let start = match SurfaceMaterial::default() {
+                    SurfaceMaterial::Solid => solid.clone(),
+                    SurfaceMaterial::UvDebug => textured.clone(),
+                };
+                ViewportTarget {
+                    kind,
+                    image: images.add(render_texture(INITIAL_SIZE)),
+                    camera: world.spawn_empty().id(),
+                    mesh: world.spawn(MeshMaterial3d(start)).id(),
+                    solid,
+                    textured,
+                    size: INITIAL_SIZE,
+                    desired: INITIAL_SIZE,
+                    hovered: false,
+                }
+            })
+            .collect();
+
+        world.insert_resource(Viewports {
+            views,
+            pending_pick: None,
+            last_generation: u64::MAX,
+        });
+        world.insert_resource(AppState::default());
+        (world, images, materials)
+    }
+
+    fn worn(world: &World, kind: ViewKind) -> AssetId<StandardMaterial> {
+        let view = world.resource::<Viewports>().get(kind);
+        world
+            .entity(view.mesh)
+            .get::<MeshMaterial3d<StandardMaterial>>()
+            .expect("the mesh entity keeps its material")
+            .id()
+    }
+
+    #[test]
+    fn only_the_grid_finish_carries_the_texture() {
+        let mut images = Assets::<Image>::default();
+        let mut materials = Assets::<StandardMaterial>::default();
+        let texture = images.add(uv_debug_texture());
+
+        for kind in ViewKind::ALL {
+            let (solid, textured) = finishes(kind, &texture, &mut materials);
+            let solid = materials.get(&solid).expect("just added");
+            let textured = materials.get(&textured).expect("just added");
+
+            assert!(
+                solid.base_color_texture.is_none(),
+                "{kind:?}: the plain finish is a flat colour"
+            );
+            assert_eq!(
+                textured.base_color_texture.as_ref().map(|h| h.id()),
+                Some(texture.id()),
+                "{kind:?}: the grid finish samples the debug texture"
+            );
+            // White, so the grid's own colours come through untinted.
+            assert_eq!(textured.base_color, Color::WHITE, "{kind:?}");
+            assert_ne!(solid.base_color, Color::WHITE, "{kind:?}");
+        }
+        // Each view owns its finishes, so nothing is shared between them.
+        assert_eq!(materials.len(), 2 * ViewKind::ALL.len());
+    }
+
+    #[test]
+    fn a_hole_in_the_shell_stays_readable_in_either_finish() {
+        let mut images = Assets::<Image>::default();
+        let mut materials = Assets::<StandardMaterial>::default();
+        let texture = images.add(uv_debug_texture());
+
+        for kind in ViewKind::ALL {
+            let (solid, textured) = finishes(kind, &texture, &mut materials);
+            for handle in [solid, textured] {
+                let material = materials.get(&handle).expect("just added");
+                // Faces are never dropped, and only the flat view lights both
+                // sides — see `finishes`.
+                assert_eq!(material.cull_mode, None, "{kind:?}");
+                assert_eq!(
+                    material.double_sided,
+                    kind == ViewKind::Flat,
+                    "{kind:?} lights back faces as front ones"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn both_views_start_in_the_grid_finish() {
+        let (world, _images, _materials) = two_views();
+        for kind in ViewKind::ALL {
+            assert_eq!(
+                worn(&world, kind),
+                world.resource::<Viewports>().get(kind).textured.id(),
+                "{kind:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn choosing_a_finish_puts_it_on_both_views() {
+        let (mut world, _images, _materials) = two_views();
+
+        // Every choice, twice round, so switching back is covered too.
+        for material in [SurfaceMaterial::ALL, SurfaceMaterial::ALL].concat() {
+            world.resource_mut::<AppState>().material = material;
+            world
+                .run_system_once(sync_material)
+                .expect("the system has all it needs");
+
+            for kind in ViewKind::ALL {
+                let view = world.resource::<Viewports>().get(kind);
+                let expected = match material {
+                    SurfaceMaterial::Solid => view.solid.id(),
+                    SurfaceMaterial::UvDebug => view.textured.id(),
+                };
+                assert_eq!(worn(&world, kind), expected, "{kind:?} in {material:?}");
+            }
+        }
+    }
 }

@@ -54,6 +54,35 @@ pub enum Grab {
     Vertex(usize, usize),
 }
 
+/// Finish for the two 3D views.
+///
+/// A view preference, so it lives here rather than in [`EllipsoidInput`] — it
+/// describes nothing about the pattern and has no business in a settings file
+/// or in the JSON stamped onto the drawing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SurfaceMaterial {
+    /// Plain blue, as the original's `THREE.MeshPhongMaterial` was.
+    Solid,
+    /// Bevy's `3d_shapes` test pattern, one tile per grid cell.
+    ///
+    /// The default: the mesh's texture coordinates *are* the surface
+    /// parametrisation, so the same tile lands on the same cell in both views,
+    /// and a point on the ellipsoid can be found on the flattened panels by eye.
+    #[default]
+    UvDebug,
+}
+
+impl SurfaceMaterial {
+    pub const ALL: [SurfaceMaterial; 2] = [SurfaceMaterial::UvDebug, SurfaceMaterial::Solid];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            SurfaceMaterial::Solid => "Solid",
+            SurfaceMaterial::UvDebug => "UV grid",
+        }
+    }
+}
+
 /// Pan and zoom for the 2D pattern preview.
 #[derive(Clone, Copy, Default)]
 pub struct PreviewView {
@@ -106,6 +135,8 @@ pub struct AppState {
     pub cutouts_dirty: bool,
     /// Where a settings file the user is choosing will be delivered.
     pub inbox: platform::Inbox,
+    /// Finish for both 3D views; applied by [`crate::viewport::sync_material`].
+    pub material: SurfaceMaterial,
     pub status: Option<Status>,
     pub view: PreviewView,
 }
@@ -125,6 +156,7 @@ impl Default for AppState {
             editing: None,
             cutouts_dirty: false,
             inbox: platform::Inbox::default(),
+            material: SurfaceMaterial::default(),
             status: None,
             view: PreviewView::default(),
         }
@@ -172,6 +204,42 @@ pub fn recompute(mut state: ResMut<AppState>) {
             state.geometry_generation = state.geometry_generation.wrapping_add(1);
         }
     }
+}
+
+/// Remove a cutout, keeping every index that points into the list honest.
+///
+/// `editing` and `drag` are positions in `cutouts`. Removing an earlier entry
+/// slides everything after it down by one, so an index left alone silently
+/// starts referring to a *different* shape — the pointer carries on editing or
+/// dragging the neighbour, which looks like the app ignoring you.
+///
+/// Takes the fields rather than `&mut AppState` so the pattern preview, which
+/// holds them as disjoint borrows, can call it too.
+pub fn forget_cutout(
+    cutouts: &mut Vec<ellipsoid_core::Cutout>,
+    editing: &mut Option<usize>,
+    drag: &mut Option<(Grab, f64, f64)>,
+    index: usize,
+) {
+    if index >= cutouts.len() {
+        return;
+    }
+    cutouts.remove(index);
+
+    let shift = |i: usize| match i.cmp(&index) {
+        std::cmp::Ordering::Equal => None,
+        std::cmp::Ordering::Less => Some(i),
+        std::cmp::Ordering::Greater => Some(i - 1),
+    };
+
+    *editing = editing.and_then(shift);
+    *drag = drag.and_then(|(grab, u, v)| {
+        let grab = match grab {
+            Grab::Cutout(i) => shift(i).map(Grab::Cutout),
+            Grab::Vertex(i, k) => shift(i).map(|i| Grab::Vertex(i, k)),
+        }?;
+        Some((grab, u, v))
+    });
 }
 
 /// Apply a settings file once the picker has delivered it.
@@ -416,5 +484,47 @@ mod tests {
         };
         assert_eq!(settle(&mut p, &edited, 10), 0);
         assert_eq!(settle(&mut p, &original, 300), 0);
+    }
+
+    /// Removing a cutout must not silently retarget what is being edited.
+    ///
+    /// `editing` and `drag` are list positions, so removing an earlier entry
+    /// slides the rest down. Left alone, shift-clicking one shape away moves
+    /// the point editor onto its neighbour — which reads as the app quietly
+    /// ignoring you.
+    #[test]
+    fn removing_a_cutout_keeps_the_other_indices_pointing_at_the_same_shapes() {
+        let shape = |u: f64| Cutout::polygon(vec![[u, 0.4], [u + 0.05, 0.4], [u, 0.5]]);
+        let mut cutouts = vec![shape(0.1), shape(0.3), shape(0.5), shape(0.7)];
+
+        // Editing the third; remove the first.
+        let mut editing = Some(2);
+        let mut drag = Some((Grab::Vertex(2, 1), 0.0, 0.0));
+        let third = cutouts[2].clone();
+        forget_cutout(&mut cutouts, &mut editing, &mut drag, 0);
+
+        assert_eq!(editing, Some(1), "editing should follow the shape down");
+        assert_eq!(drag.map(|(g, ..)| g), Some(Grab::Vertex(1, 1)));
+        assert_eq!(
+            cutouts[editing.unwrap()],
+            third,
+            "now editing another shape"
+        );
+
+        // Removing the one being edited stops editing rather than moving on.
+        forget_cutout(&mut cutouts, &mut editing, &mut drag, 1);
+        assert_eq!(editing, None);
+        assert_eq!(drag, None);
+
+        // A later removal leaves an earlier index alone.
+        let mut editing = Some(0);
+        let mut drag = None;
+        forget_cutout(&mut cutouts, &mut editing, &mut drag, 1);
+        assert_eq!(editing, Some(0));
+
+        // And out of range is a no-op, not a panic.
+        let before = cutouts.len();
+        forget_cutout(&mut cutouts, &mut editing, &mut drag, 99);
+        assert_eq!(cutouts.len(), before);
     }
 }

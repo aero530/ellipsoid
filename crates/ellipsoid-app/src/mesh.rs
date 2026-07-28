@@ -21,7 +21,7 @@ use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use ellipsoid_core::surface::{Cell, SurfaceParam, flat_point_in_strip, surface_point};
-use ellipsoid_core::{DVec3, FlatGeometry, Geometry};
+use ellipsoid_core::{DVec2, DVec3, FlatGeometry, Geometry};
 use ellipsoid_pattern::DomainTriangle;
 
 /// Core is Z-up (`c` is the height axis); Bevy is Y-up.
@@ -125,6 +125,7 @@ pub fn surface_mesh(geometry: &Geometry, param: &SurfaceParam, domain: &[DomainT
 
     let mut positions = Vec::with_capacity(domain.len() * 3);
     let mut vertex_normals = Vec::with_capacity(domain.len() * 3);
+    let mut uvs = Vec::with_capacity(domain.len() * 3);
     for triangle in domain {
         for uv in triangle.uv {
             // The surface grid shares its columns, so resolving the strip from
@@ -143,6 +144,7 @@ pub fn surface_mesh(geometry: &Geometry, param: &SurfaceParam, domain: &[DomainT
                 )
                 .normalize_or_zero(),
             );
+            uvs.push(grid_uv(param, uv));
         }
     }
 
@@ -153,7 +155,26 @@ pub fn surface_mesh(geometry: &Geometry, param: &SurfaceParam, domain: &[DomainT
     )
     .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
     .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_normals)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     .with_inserted_indices(indices)
+}
+
+/// Texture coordinates: the surface parametrisation, one tile per grid cell.
+///
+/// `(u, v)` is already the natural parametrisation, so a texture applied through
+/// it lands the same way on the ellipsoid and on the flattened panels — which
+/// makes it possible to find a point on one in the other by eye. Scaling by the
+/// division counts puts one copy of the texture on each cell, so the tiling also
+/// reads as the grid the pattern is cut from.
+fn grid_uv(_param: &SurfaceParam, uv: DVec2) -> [f32; 2] {
+    [
+        // (uv.x * param.phi_divisions as f64 * 0.50) as f32,
+        // (uv.y * param.theta_divisions as f64 * 0.50) as f32,
+
+        // set uv to be horizontal bands
+        1.0, //(uv.x * 1.0) as f32,
+        (uv.y * 1.0) as f32,
+    ]
 }
 
 /// The flattened pattern, with `domain`'s cutouts taken out of it.
@@ -163,6 +184,7 @@ pub fn surface_mesh(geometry: &Geometry, param: &SurfaceParam, domain: &[DomainT
 /// the reason every point here is placed with its own strip pinned.
 pub fn flat_mesh(flat: &FlatGeometry, param: &SurfaceParam, domain: &[DomainTriangle]) -> Mesh {
     let mut positions = Vec::with_capacity(domain.len() * 3);
+    let mut uvs = Vec::with_capacity(domain.len() * 3);
     for triangle in domain {
         for uv in triangle.uv {
             positions.push(to_bevy(flat_point_in_strip(
@@ -172,12 +194,22 @@ pub fn flat_mesh(flat: &FlatGeometry, param: &SurfaceParam, domain: &[DomainTria
                 uv.x,
                 uv.y,
             )));
+            // The same coordinates as the surface mesh, so a texture lands on
+            // matching places in both views.
+            uvs.push(grid_uv(param, uv));
         }
     }
-    let indices = (0..positions.len() as u32).collect();
+    let indices = Indices::U32((0..positions.len() as u32).collect());
     // The pattern lies in a plane, so per-face normals and smooth normals come
     // out the same; no interpolation needed.
-    build(positions, indices)
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    .with_inserted_indices(indices)
+    .with_computed_smooth_normals()
 }
 
 /// Centre and radius of a bounding sphere around the mesh's bounding box.

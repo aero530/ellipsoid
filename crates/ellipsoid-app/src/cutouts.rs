@@ -128,7 +128,13 @@ pub fn apply_picks(
                 Some((index, ..)) => {
                     let what = state.input.cutouts[index].describe();
                     let message = format!("Removed {what}");
-                    state.input.cutouts.remove(index);
+                    let AppState {
+                        input,
+                        editing,
+                        drag,
+                        ..
+                    } = &mut *state;
+                    crate::state::forget_cutout(&mut input.cutouts, editing, drag, index);
                     state.status = Some(Status::info(message));
                     state.touch();
                 }
