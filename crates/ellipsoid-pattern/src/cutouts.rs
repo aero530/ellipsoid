@@ -184,6 +184,95 @@ pub fn area(points: &[DVec2]) -> f64 {
     signed_area(points).abs() / 2.0
 }
 
+/// Remove hairline spikes: vertices whose two neighbours all but coincide.
+///
+/// A cutout that crosses a seam is subtracted as one piece per strip, and each
+/// piece is placed with *its own* strip pinned — which is the only way to place
+/// it, but it means the two pieces meet along an edge the two strips do not
+/// flatten to quite the same place. The gap is a fraction of a millimetre, and
+/// where the boolean welds the pieces anyway it leaves the discrepancy behind as
+/// a needle of material standing inside the hole:
+///
+/// ```text
+///   (346.594, 317.420)      the two sides of one seam, 0.2 apart...
+///   (346.770, 309.507)      ...with the ring running 7.9 up between them
+///   (346.819, 317.422)      and straight back down
+/// ```
+///
+/// Nothing downstream can see this. The ring is closed and simple, its area is
+/// unremarkable, and the spike is a feature *within* it rather than a ring of
+/// its own — so the "too small to be worth cutting" filter, which works on whole
+/// rings, passes it straight through. It reaches the drawing as a stray tick.
+///
+/// The cut outline has always had the same problem and solves it the same way:
+/// two panel edges closer than `min_gap` are treated as one edge and the
+/// duplicate points dropped. This is that rule, applied to what the boolean
+/// gives back.
+///
+/// A spike is recognised by the ring coming back to where it was: two vertices
+/// within `tolerance` of each other, with a path between them *longer* than
+/// that. On a smooth curve those two conditions never hold together — points a
+/// stroke width apart are joined by a path a stroke width long — so a densely
+/// sampled rim passes through untouched. Only a there-and-back does both.
+///
+/// The tip of a spike is not always a vertex. Welded from two sides, it is
+/// usually a very short *edge* between the two, which is why the span is
+/// searched rather than each vertex examined in isolation:
+///
+/// ```text
+///   (346.289, 320.908)   on the hole's bottom edge
+///   (346.594, 317.420)   up
+///   (346.819, 317.422)   across 0.2 — the tip
+///   (346.903, 320.922)   and back down to the bottom edge
+/// ```
+///
+/// Iterative because collapsing one exposes the next: the five-point excursion
+/// this started as becomes a four-point one, then nothing.
+pub fn despike(ring: &mut Vec<DVec2>, tolerance: f64) {
+    /// How many vertices a spike may be made of. Two is enough for a welded tip
+    /// and keeps this from reaching across a real feature to find its far side.
+    const LONGEST_SPIKE: usize = 3;
+
+    if tolerance <= 0.0 {
+        return;
+    }
+
+    // A triangle is the smallest thing that still encloses anything. Anything
+    // reduced that far is left for the area filter to discard, rather than
+    // being flattened into a line here.
+    while ring.len() > 3 {
+        let n = ring.len();
+        let mut collapsed = false;
+
+        'search: for start in 0..n {
+            let mut walked = 0.0;
+            for span in 1..=LONGEST_SPIKE.min(n - 2) {
+                walked += ring[(start + span - 1) % n].distance(ring[(start + span) % n]);
+                if span < 2 {
+                    continue;
+                }
+                let end = (start + span) % n;
+                if ring[start].distance(ring[end]) <= tolerance && walked > tolerance {
+                    let doomed: Vec<usize> = (1..span).map(|k| (start + k) % n).collect();
+                    let mut kept = Vec::with_capacity(n - doomed.len());
+                    for (index, point) in ring.iter().enumerate() {
+                        if !doomed.contains(&index) {
+                            kept.push(*point);
+                        }
+                    }
+                    *ring = kept;
+                    collapsed = true;
+                    break 'search;
+                }
+            }
+        }
+
+        if !collapsed {
+            return;
+        }
+    }
+}
+
 /// Twice the signed area. Positive means counter-clockwise.
 fn signed_area(points: &[DVec2]) -> f64 {
     let mut sum = 0.0;
@@ -774,6 +863,76 @@ mod tests {
         ];
         let clipped = clip_to_rect(&square, DVec2::new(5.0, 5.0), DVec2::new(6.0, 6.0));
         assert!(clipped.is_empty(), "{clipped:?}");
+    }
+
+    /// The needle a welded seam leaves inside a hole. Plan §8.10.
+    #[test]
+    fn a_hairline_spike_is_removed() {
+        // The real thing, lifted out of a pattern: the bottom edge of a hole,
+        // interrupted by an excursion 3.5 up, 0.2 across the tip, and back.
+        let mut ring = vec![
+            DVec2::new(300.0, 320.9),
+            DVec2::new(346.289, 320.908),
+            DVec2::new(346.594, 317.420),
+            DVec2::new(346.819, 317.422),
+            DVec2::new(346.903, 320.922),
+            DVec2::new(400.0, 320.9),
+            DVec2::new(400.0, 250.0),
+            DVec2::new(300.0, 250.0),
+        ];
+        let before = area(&ring);
+        despike(&mut ring, 1.26);
+
+        assert!(
+            !ring.iter().any(|p| p.y < 320.0 && p.y > 260.0),
+            "the excursion is still there: {ring:?}"
+        );
+        // The hole gains the sliver of material that was standing in it, and
+        // nothing else: a tenth of a percent of a hole this size.
+        assert!(
+            (area(&ring) - before).abs() < before * 0.001,
+            "area moved from {before} to {}",
+            area(&ring)
+        );
+    }
+
+    /// The guard that matters: this must not quietly smooth real geometry.
+    ///
+    /// A rim is sampled far more finely than one stroke width in places, and a
+    /// rule that collapsed any two nearby points would turn a circle into a
+    /// polygon without anyone noticing.
+    #[test]
+    fn a_finely_sampled_curve_is_left_alone() {
+        // 200 points around a circle of radius 30: neighbours are 0.94 apart,
+        // well inside a tolerance of 2, and three-vertex spans span 2.8.
+        let ring: Vec<DVec2> = (0..200)
+            .map(|i| {
+                let a = i as f64 / 200.0 * std::f64::consts::TAU;
+                DVec2::new(30.0 * a.cos(), 30.0 * a.sin())
+            })
+            .collect();
+        let mut despiked = ring.clone();
+        despike(&mut despiked, 2.0);
+        assert_eq!(despiked, ring, "a smooth curve was simplified");
+    }
+
+    /// A narrow feature that is still wider than the pen stays.
+    #[test]
+    fn a_real_notch_is_not_mistaken_for_a_spike() {
+        let mut ring = vec![
+            DVec2::new(0.0, 0.0),
+            DVec2::new(40.0, 0.0),
+            DVec2::new(40.0, 30.0),
+            // A 6-wide slot cut into the top — narrow, but a cutter can make it.
+            DVec2::new(23.0, 30.0),
+            DVec2::new(23.0, 10.0),
+            DVec2::new(17.0, 10.0),
+            DVec2::new(17.0, 30.0),
+            DVec2::new(0.0, 30.0),
+        ];
+        let before = ring.clone();
+        despike(&mut ring, 1.26);
+        assert_eq!(ring, before, "a 6-wide slot is not a hairline");
     }
 
     /// A hole in the fewest strips the app allows. Plan §8.8.

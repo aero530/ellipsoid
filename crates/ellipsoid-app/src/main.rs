@@ -42,6 +42,13 @@ fn main() {
         .add_plugins(EguiPlugin::default())
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, (viewport::setup, state::restore))
+        // The window exists by the time `Update` first runs, which `Startup` cannot promise —
+        // bevy_winit creates it from the event loop, not from a schedule. `run_once` keeps this
+        // to the single frame it needs.
+        .add_systems(
+            Update,
+            platform::set_window_icon.run_if(bevy::ecs::schedule::common_conditions::run_once),
+        )
         .add_systems(
             Update,
             (

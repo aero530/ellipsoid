@@ -13,6 +13,65 @@
 //! [`Inbox`] the UI drains each frame — the native side simply fills it before
 //! returning.
 
+/// Put the application icon on the window.
+///
+/// The icon in the executable's resources is not this. That one is what Explorer, the Properties
+/// dialog and a pinned shortcut read; the title bar and the running task's taskbar button come
+/// from the window itself, and winit leaves that unset unless asked — so both were showing the
+/// generic Windows "some application" tile while the .exe carried the right artwork all along.
+///
+/// Nothing to do on the web: the browser takes the tab icon from the `<link rel="icon">` in
+/// `index.html`, which trunk fills in from the same `resources/icon.ico`.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn set_window_icon(
+    // Pins the system to the main thread, and it has to. The winit windows live in a
+    // *thread-local* owned by that thread, so a system free to run on a worker sees an empty
+    // one, finds no window, and does nothing at all — silently, since there is no error to
+    // report. bevy_winit's own systems carry this marker for the same reason.
+    _main_thread: bevy::ecs::system::NonSendMarker,
+    windows: bevy::ecs::system::Query<
+        bevy::prelude::Entity,
+        bevy::prelude::With<bevy::window::PrimaryWindow>,
+    >,
+) {
+    use bevy::winit::WINIT_WINDOWS;
+
+    // 64x64: large enough for the taskbar without carrying the 256 into memory. winit scales it
+    // down for the title bar itself.
+    const ICON: &[u8] = include_bytes!("../../../resources/icons/64x64.png");
+
+    let Ok(entity) = windows.single() else {
+        return;
+    };
+
+    let image = match image::load_from_memory_with_format(ICON, image::ImageFormat::Png) {
+        Ok(image) => image.into_rgba8(),
+        Err(error) => {
+            bevy::log::warn!("the window icon did not decode, carrying on without it: {error}");
+            return;
+        }
+    };
+    let (width, height) = image.dimensions();
+    let icon = match winit::window::Icon::from_rgba(image.into_raw(), width, height) {
+        Ok(icon) => icon,
+        Err(error) => {
+            bevy::log::warn!("the window icon was rejected, carrying on without it: {error}");
+            return;
+        }
+    };
+
+    // Bevy 0.19 keeps the winit windows in a thread-local rather than a non-send resource.
+    WINIT_WINDOWS.with_borrow(|winit_windows| {
+        if let Some(window) = winit_windows.get_window(entity) {
+            window.set_window_icon(Some(icon));
+        }
+    });
+}
+
+/// Nothing to do: the browser takes the tab icon from `index.html`.
+#[cfg(target_arch = "wasm32")]
+pub fn set_window_icon() {}
+
 /// What happened to a save request.
 ///
 /// Every variant is present on every target so callers can report on any of

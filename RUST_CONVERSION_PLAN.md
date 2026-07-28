@@ -469,6 +469,8 @@ There's no filesystem in the browser. The trait in Phase 7 handles it, but note 
 
    **§8.8's `unfold_angle` was not the fix** — substituting it made `h_top_fraction_large_spherical` worse, 6.0% → 34.6% short, because it only chooses a magnitude and these folds needed a sign too.
 
+10. **A cutout crossing a seam leaves a needle of material standing in it.** ✅ **FIXED** — see Appendix AA. *(Reported from the app.)* Each piece of the cutout is placed with its own strip pinned, so the two pieces meet along an edge the two strips do not flatten to quite the same place — 0.2 drawing units, a fraction of a millimetre. Where the boolean welds them anyway it leaves that discrepancy behind as a hairline spike *inside* the ring, which every downstream check passes: the ring is closed and simple, its area is unremarkable, and the "too small to cut" filter works on whole rings.
+
 ---
 
 ## 9. Testing strategy
@@ -1570,3 +1572,207 @@ The greps are still worth keeping — they name what was customised and why — 
 - **Nothing is code-signed.** Windows will show a SmartScreen warning on first run of an unsigned installer, and macOS will refuse the app until it is unquarantined. Both need certificates, so both are decisions rather than work.
 - **GitHub Pages must be enabled** in the repository settings (source: GitHub Actions) before `pages.yml` can deploy the web demo.
 - The install directory is still `Program Files\ellipsoid-app\bin`. Renaming it to the product name is free *before* the first release and awkward after, since it would orphan existing installs.
+
+## Appendix Y — Rebuilding the Windows installer the way UniTerm does it
+
+Appendix X got dist's MSI building. This replaces it. The two defects there were symptoms: the
+package was a cargo-wix template being hand-edited into shape and then defended from the tool
+that owns it, and no amount of care makes that arrangement good. UniTerm — same author, same
+kind of application — already had the better answer, so ellipsoid now uses it.
+
+### What changed
+
+| | dist's msi | `installer/` |
+| --- | --- | --- |
+| Authoring | cargo-wix template, hand-edited, `allow-dirty = ["msi"]` to stop `dist generate` reverting it | 170 lines that are ours outright |
+| Scope | perMachine, `Program Files`, UAC prompt | **perUser**, `%LOCALAPPDATA%\Programs\Ellipsoid`, no prompt |
+| Packages | one per binary — the app and the CLI arrived as two separate installs of one program | one, carrying both, with the folder on the user PATH |
+| WiX | whatever the machine has | pinned 3.14.1, SHA256-checked, unpacked under `target/` |
+| Licence page | disabled | generated from `LICENSE` at build time |
+| Artwork | WiX's own red graphic | banner and panel rendered from `resources/icon.png` |
+| After install | — | optional "Launch Ellipsoid Pattern Generator" |
+| Verification | none | 25 checks against the real Windows Installer |
+
+Three files: `installer/ellipsoid.wxs`, `installer/build.ps1`, `installer/verify.ps1`.
+
+### The generated pieces earn their keep
+
+Two of WiX's defaults fail *silently* — the package builds, validates and installs perfectly
+while being wrong:
+
+- **The licence page.** With `WixUILicenseRtf` unset, WixUI substitutes the placeholder
+  `License.rtf` from WixUIExtension, and the installer asks people to accept *Lorem ipsum*.
+- **The artwork.** Left unset, the banner and panel are WiX's own.
+
+Both are generated from what the repository already has, rather than committed as second copies
+that can drift, and `verify.ps1` asserts both out of the built MSI — the licence text by
+matching `MIT License` and rejecting `Lorem ipsum`, the bitmaps by byte count. An uncompressed
+24-bit BMP's size follows from its dimensions alone, `54 + ceil(w*3/4)*4*h`, so 85894 and 461814
+pin 493x58 and 493x312 without decoding anything.
+
+### Verification is the point
+
+`verify.ps1` installs the MSI, checks the layout, runs both binaries, reinstalls, uninstalls and
+checks the cleanup — 25 claims, all passing locally:
+
+```
+PASS  declares that elevation is not required
+PASS  the licence page shows the real licence          PASS  ... is not placeholder text
+PASS  WixUI_Bmp_Banner is our 493x58 artwork           PASS  WixUI_Bmp_Dialog is our 493x312 artwork
+PASS  install succeeds
+PASS  ellipsoid-app.exe / the CLI / LICENSE / README / CHANGELOG are installed
+PASS  installs under the user profile, not Program Files
+PASS  Start Menu shortcut exists                       PASS  shortcut points at the installed binary
+PASS  the install directory is on the user PATH
+PASS  generates an SVG pattern                         PASS  the output is an SVG
+PASS  launches and opens its window
+PASS  reinstall succeeds                               PASS  still exactly one copy installed
+PASS  uninstall succeeds, directory / shortcut / registry marker / PATH entry removed
+PASS  shared Programs folder left alone
+```
+
+The CLI check runs a real pattern rather than `--version`: it is the only step that says the
+shipped binary can do what the project is for. The last one is subtler than it looks — the
+uninstall must not delete the shared `Programs` folder, and "left alone" is unobservable on a
+machine where nothing else is in it, so the script plants a neighbour first.
+
+One claim failed on the first run: the PATH entry. That was the *test* being wrong — MSI resolves
+`[INSTALLFOLDER]` with a trailing separator, so the entry reads `...\Programs\Ellipsoid\` and an
+exact match against the unslashed form reports a missing entry that is present and working. Both
+sides are trimmed now.
+
+### How it sits beside dist
+
+dist keeps the macOS and Linux archives, the Windows `.zip`, the shell installers and the
+checksums, and still creates the release; `installers` lost `"msi"`, both `wix/` directories are
+gone, and so is `allow-dirty`. dist's `extra-artifacts` hook cannot host this, because it runs in
+the Linux global-artifacts job, so `installer.yml` runs on the same tag and uploads into the
+release dist creates — waiting up to 20 minutes for it to appear rather than racing it.
+
+CI builds the installer on every push, `-SkipBuild` against stub binaries: no cargo, seconds once
+the pinned WiX is cached, and it still exercises the licence RTF, the artwork, candle and ICE
+validation. That is the cheap version of the thing that would have caught both Appendix X
+defects. The old grep guard is gone with the template it was guarding.
+
+### Still open
+
+Code signing. `build.ps1 -CertThumbprint` is wired and unused; without it Windows SmartScreen
+warns on first run, which the README now says plainly rather than leaving people to discover.
+
+## Appendix Z — One SVG, every icon
+
+`resources/ellipsoid.svg` replaced the artwork. Everything downstream is generated from it by
+`resources/generate-icons.ps1`, so it is the only file anyone edits: the sized PNG set, `icon.png`
+(what the installer renders its artwork from), `icon.ico` (embedded in the .exe, used by the MSI
+and the web build) and `icon.icns`.
+
+Rendered once at 1024 through Microsoft Edge and downsampled, rather than rasterised separately
+at each size. Downsampling from 4x or more is supersampling, and a wireframe of 1.5-unit strokes
+asked for directly at 16x16 loses most of them — at that size a stroke is a fraction of a pixel
+wide. Two details the render needed:
+
+- **A wrapper page.** The SVG declares `width="256"`, and a browser honours it: asked for a
+  1024x1024 shot of the file directly, it paints a 256x256 icon in the corner. Stretching it to
+  the viewport with `width:100vw` makes the render resolution independent of the artwork's
+  declared size.
+- **`--default-background-color=00000000`.** Without it every rounded corner comes back white.
+
+The `.ico` is written by hand: an `ICONDIR`, then one uncompressed 32-bit DIB per size, each a
+`BITMAPINFOHEADER` with the height doubled, bottom-up BGRA rows, and an all-zero AND mask that
+cannot be omitted. PNG entries would be smaller and are legal from Vista on, but one consumer
+here is the Windows Installer's icon handling and a DIB costs nothing but disk.
+
+### The window icon was never the executable's icon
+
+The .exe resource added in Appendix X is read by Explorer, the Properties dialog and a pinned
+shortcut. The **title bar and the running task's taskbar button** come from the window, and winit
+leaves that unset unless asked — so both had been showing the generic Windows "some application"
+tile the whole time, which is only obvious once you zoom into a screenshot and look at it.
+
+`platform::set_window_icon` now sets it, and it took two attempts:
+
+- It has to run in `Update`, not `Startup`: bevy_winit creates the window from the event loop
+  rather than from a schedule, so at `Startup` there is nothing to put an icon on. `run_once`
+  keeps it to one frame.
+- It has to carry a `NonSendMarker`. Bevy 0.19 keeps the winit windows in a **thread-local**,
+  and a system whose parameters are all `Send` may run on any worker thread — where that
+  thread-local is empty. The first version looked correct, compiled, ran, found no window, and
+  did nothing, with no error anywhere. bevy_winit's own systems carry the same marker.
+
+`winit` and `image` became direct dependencies of `ellipsoid-app` to do this. Neither adds a
+crate to the build: Bevy already compiles both, at the versions the lockfile resolves. The winit
+version has to track whatever bevy_winit picked, since the icon is handed to a window bevy_winit
+created — a mismatch is a compile error rather than a subtle failure, which is the right way
+round.
+
+### The web build had no favicon at all
+
+Now `<link data-trunk rel="icon" href="../../resources/icon.ico">`. Going through trunk's asset
+pipeline rather than writing the tag by hand is what makes it work on GitHub Pages: trunk copies
+the file, hashes the name and rewrites the href against `--public-url`, so it resolves to
+`/ellipsoid/icon-<hash>.ico`. A hand-written `/favicon.ico` would 404 under the subpath. Verified
+by building both ways.
+
+## Appendix AA — The needles inside a cutout
+
+Reported from the app: a six-sided shape drawn across the middle band came out with three thin
+slivers standing inside it, one per gore seam.
+
+### What they were
+
+Reproduced from the settings stamped on the drawing, then read straight out of the SVG. The
+cutout is a single 44-point ring, and it doubles back on itself at every seam:
+
+```
+[ 3] (346.594, 317.420)
+[ 4] (346.770, 309.507)   up 7.9
+[ 5] (346.819, 317.422)   and straight back down, 0.2 away
+```
+
+A needle 0.2 drawing units wide and 7.9 tall — about 0.05 mm by 2 mm. At x = 346.7, 434.1 and
+521.4, which are the seams.
+
+### Why the existing defences all missed it
+
+A cutout crossing a seam is subtracted as one piece per strip, each placed with **its own strip
+pinned** — which is the only way to place it, since deriving the strip from `u` would throw
+points sitting exactly on a cut edge onto the neighbouring panel, and at the phi wrap that
+neighbour is at the far side of the page. The cost is that the two pieces meet along an edge the
+two strips do not flatten to quite the same place: each gore is developed independently, and they
+agree exactly only at the widest row. Everywhere else there is a fraction of a millimetre in it.
+
+The boolean welds the pieces anyway and leaves the discrepancy as a spike. Nothing downstream can
+see that:
+
+- the ring is closed and simple, so the boolean is content;
+- its area is ordinary, so the "smaller than the line that would draw it" filter — which works on
+  whole *rings* — passes it;
+- `min_gap` never reaches it. The cut outline has exactly this problem between adjacent panels and
+  solves it by dropping points closer together than `min_gap`, but that runs when the outline is
+  built, not on what the boolean gives back.
+
+The comment above the ring filter already described the same phenomenon producing separate
+slivers, which that filter does catch. Welded into the ring instead, it walks straight past.
+
+### The rule
+
+`despike` collapses an excursion whose endpoints are within a tolerance of each other **and whose
+path between them is longer than that**. Both conditions together are what identifies a spike: on
+a smooth curve, two points a stroke width apart are joined by a path a stroke width long, so a
+finely sampled rim is untouched. Only a there-and-back satisfies both.
+
+Two details the first attempt got wrong:
+
+- **The tip is usually an edge, not a vertex.** Welded from two sides, a needle ends in a very
+  short segment between them, so "remove a vertex whose neighbours nearly coincide" shortened the
+  spikes without removing them — the render still had ticks, half the height. The search runs over
+  spans of up to three vertices rather than examining each vertex alone.
+- **It must be bounded.** An unbounded "merge anything closer than the tolerance" rule would walk
+  along a densely sampled rim and polygonise it. `a_finely_sampled_curve_is_left_alone` pins that:
+  200 points around a circle, neighbours 0.94 apart, tolerance 2 — unchanged.
+
+Tolerance is one stroke width, the same threshold the neighbouring ring filter uses: a feature
+thinner than the line drawing it cannot be cut.
+
+Verified end to end — the reproduction goes from six near-vertical segments inside the hole to
+none, and the hole's area moves by 0.02%, which is the sliver of material it gains.

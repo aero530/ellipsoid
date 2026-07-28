@@ -29,82 +29,39 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
-      # crates/ellipsoid-app/wix/main.wxs is hand-edited and only stays that way
-      # because of `allow-dirty = ["msi"]` in dist-workspace.toml. Drop that
-      # line and `dist generate` reverts the Start Menu shortcut and the product
-      # icon — a silently plainer installer nobody notices until a user asks
-      # where the app went.
-      - name: msi-customisation
-        run: |
-          wxs=crates/ellipsoid-app/wix/main.wxs
-          # Anchored to the start of the line on purpose. Every one of these
-          # names also appears in the stock template — two in the explanatory
-          # comment at the top, the icon pair inside a commented-out block that
-          # the customisation uncomments — so a substring match would keep
-          # passing after the markup itself had been reverted.
-          for pattern in \
-            "^ *<Directory Id='ProgramMenuFolder'" \
-            "^ *<Component Id='StartMenuShortcut'" \
-            "^ *<ComponentRef Id='StartMenuShortcut'" \
-            "^ *Name='Ellipsoid Pattern Generator'" \
-            "^ *<Icon Id='ProductICO'" \
-            "^ *<Property Id='ARPPRODUCTICON'"
-          do
-            grep -qE "$pattern" "$wxs" \
-              || { echo "::error file=$wxs::no line matching /$pattern/ — did 'dist generate' overwrite the hand edits? See the note at the top of the file."; exit 1; }
-          done
-          test -f crates/ellipsoid-app/wix/Product.ico \
-            || { echo "::error::wix/Product.ico is missing; the msi will not build"; exit 1; }
-
-  # Builds the installer from the WiX source against a stub executable. No cargo
-  # and no release build, so it costs seconds — and it is the only thing here
-  # that would have caught either of the two ways the MSI was broken before it
-  # ever shipped:
+  # Builds the installer from its WiX source against stub binaries, on every push.
   #
-  #   * `SourceFile='wix\Product.ico'` resolves against light's working
-  #     directory, which for a workspace is the repository root (LGHT0103).
-  #   * a non-advertised shortcut in the binary's own component fails ICE43 and
-  #     ICE57 — a Start Menu entry is per-user data, the binary is per-machine.
+  # `-SkipBuild` is what makes this cheap: no cargo, no release build, seconds once the pinned
+  # WiX is cached. It still runs the real build.ps1, so the licence RTF, the generated artwork,
+  # candle and light — including ICE validation — are all exercised.
   #
-  # Both pass `dist plan` and both pass every grep above. Only candle and light
-  # have an opinion.
+  # Worth having because the installer that this replaced was broken in two ways that nothing
+  # short of running light would show: a `SourceFile` path that resolved against the wrong
+  # directory, and a shortcut in a component that failed ICE43 and ICE57. Both passed `dist plan`
+  # and every static check that was in this file.
+  #
+  # It does not install anything; that is installer/verify.ps1, which runs in the release
+  # workflow where the binaries are real.
   msi:
-    name: msi builds
+    name: installer builds
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      # WiX 3.14 ships with the runner image and sets %WIX%; cargo-wix looks for
-      # candle and light under its `bin`. If a future image drops it, this fails
-      # loudly here rather than during a release.
-      - name: Locate WiX
-        shell: pwsh
-        run: |
-          if (-not $env:WIX) { throw "no %WIX% on this runner; WiX Toolset v3 is required to build the msi" }
-          "WIX=$env:WIX"
-          & "$env:WIX\bin\candle.exe" -? | Select-Object -First 1
+      - name: Cache WiX toolset
+        uses: actions/cache@v4
+        with:
+          path: target/installer-tools
+          key: ${{ runner.os }}-wix-${{ hashFiles('installer/build.ps1') }}
 
-      # candle and light only need the file to exist — they read its size and
-      # version, not its code.
-      - name: Build the installer from a stub binary
+      # candle and light only need the files to exist — they read their size, not their code.
+      - name: Build the installer from stub binaries
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path stub | Out-Null
-          Set-Content -Path stub\ellipsoid-app.exe -Value 'stub' -Encoding ascii
-          Set-Content -Path stub\ellipsoid.exe -Value 'stub' -Encoding ascii
-          $bin = (Resolve-Path stub).Path
-          $failed = $false
-          foreach ($crate in 'ellipsoid-app', 'ellipsoid-cli') {
-            $wxs = "crates\$crate\wix\main.wxs"
-            Write-Output "== $wxs =="
-            & "$env:WIX\bin\candle.exe" -nologo -arch x64 "-dCargoTargetBinDir=$bin" `
-              '-dVersion=0.0.0' '-dPlatform=x64' -out "$crate.wixobj" $wxs
-            if ($LASTEXITCODE -ne 0) { $failed = $true; continue }
-            & "$env:WIX\bin\light.exe" -nologo -ext WixUIExtension -ext WixUtilExtension `
-              -cultures:en-us -out "$crate.msi" "$crate.wixobj"
-            if ($LASTEXITCODE -ne 0) { $failed = $true }
-          }
-          if ($failed) { throw "the WiX source does not build; see the candle/light errors above" }
+          New-Item -ItemType Directory -Force -Path target/release | Out-Null
+          Set-Content -Path target/release/ellipsoid-app.exe -Value 'stub' -Encoding ascii
+          Set-Content -Path target/release/ellipsoid.exe -Value 'stub' -Encoding ascii
+          ./installer/build.ps1 -SkipBuild -PinnedWix
 
   test:
     name: test (${{ matrix.os }})

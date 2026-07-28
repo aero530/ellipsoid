@@ -458,7 +458,14 @@ pub fn draw_cutouts(
         return;
     };
 
-    let (outer, holes) = crate::cutouts::subtract_from_outline(&outline, &pieces);
+    let (mut outer, mut holes) = crate::cutouts::subtract_from_outline(&outline, &pieces);
+
+    // Weld the seams the boolean left pinched — see `cutouts::despike`. A
+    // feature thinner than the line drawing it cannot be cut, which is the same
+    // threshold the ring filter below uses.
+    for ring in outer.iter_mut().chain(holes.iter_mut()) {
+        crate::cutouts::despike(ring, stroke_width);
+    }
 
     // Drop anything smaller than the line that would draw it.
     //

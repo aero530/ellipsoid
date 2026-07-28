@@ -2539,12 +2539,14 @@ dependencies = [
  "directories",
  "ellipsoid-core",
  "ellipsoid-pattern",
+ "image",
  "js-sys",
  "rfd",
  "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+ "winit",
  "winresource",
 ]
 

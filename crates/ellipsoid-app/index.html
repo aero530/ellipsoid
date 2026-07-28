@@ -12,6 +12,11 @@
          from trunk's download callbacks. -->
     <link data-trunk rel="rust" data-wasm-opt="0" data-initializer="loader.js" />
 
+    <!-- The same artwork the desktop build embeds. trunk copies the file into dist/ and
+         rewrites the href, so this works under the /ellipsoid/ subpath GitHub Pages serves
+         from — a hand-written /favicon.ico would 404 there. -->
+    <link data-trunk rel="icon" href="../../resources/icon.ico" />
+
     <style>
       html,
       body {

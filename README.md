@@ -40,11 +40,18 @@ Download an installer or archive from [Releases](https://github.com/aero530/elli
 
 | Platform | |
 | --- | --- |
-| Windows | the `.msi`, or `irm https://github.com/aero530/ellipsoid/releases/latest/download/ellipsoid-app-installer.ps1 \| iex` |
+| Windows | `Ellipsoid-<version>-x64.msi` |
 | macOS, Linux | `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/aero530/ellipsoid/releases/latest/download/ellipsoid-app-installer.sh \| sh` |
 | Any | the `.tar.xz` / `.zip` archive for your platform |
 
-The command-line tool ships alongside it, as `ellipsoid-cli-*`.
+The Windows installer carries **both** the app and the `ellipsoid` command-line tool, installs
+for the current user only — into `%LOCALAPPDATA%\Programs\Ellipsoid`, so it never asks for
+administrator rights — adds itself to your PATH, and puts the app in the Start Menu. Uninstall
+from Settings › Apps. On the other platforms the command-line tool ships separately, as
+`ellipsoid-cli-*`.
+
+Nothing is code-signed, so Windows SmartScreen warns the first time you run the installer:
+**More info › Run anyway**.
 
 There is also a **[web demo](https://aero530.github.io/ellipsoid/)** — the same app compiled to WebAssembly. It is a demo rather than the recommended way to use this: the download is several megabytes, and it can only save to your downloads folder.
 
@@ -110,6 +117,14 @@ cargo install trunk
 trunk serve                          # http://127.0.0.1:8080
 ```
 
+For the Windows installer — WiX is downloaded, checksummed and unpacked under `target/`, so
+nothing is installed system-wide and no administrator rights are needed:
+
+```powershell
+.\installer\build.ps1                 # target/installer/Ellipsoid-<version>-x64.msi
+.\installer\verify.ps1                # installs it, runs it, uninstalls it, checks the cleanup
+```
+
 ## Layout
 
 | Crate | |
@@ -119,19 +134,9 @@ trunk serve                          # http://127.0.0.1:8080
 | [`ellipsoid-app`](crates/ellipsoid-app) | Bevy + egui GUI — one binary for both desktop and web |
 | [`ellipsoid-cli`](crates/ellipsoid-cli) | Headless renderer |
 
-`golden/` holds snapshots of the geometry and the SVG across a parameter matrix chosen to hit the branches rather than the defaults. They are regression fixtures, regenerated deliberately with `UPDATE_GOLDEN=1 cargo test` after reading the diff. Alongside them, `tests/invariants.rs` checks properties the output must have — chiefly that unrolling preserves lengths — which is what says the numbers are *right* rather than merely unchanged.
+[`golden/`](golden) holds snapshots of the geometry and the SVG across a parameter matrix chosen to hit the branches rather than the defaults. They are regression fixtures, regenerated deliberately with `UPDATE_GOLDEN=1 cargo test` after reading the diff. Alongside them, `tests/invariants.rs` checks properties the output must have — chiefly that unrolling preserves lengths — which is what says the numbers are *right* rather than merely unchanged. [`golden/README.md`](golden/README.md) explains the file format, the naming, and which test reads what.
 
 The core math is `f64` because the port was validated against the JavaScript at a `1e-9` relative tolerance, which `f32` cannot reach.
-
-## About the rewrite
-
-Versions up to 1.x were an Electron app — React, Redux, paper.js, three.js. Version 2 is a rewrite in Rust. The geometry is a deliberately faithful port, checked function by function against the original's output **including its bugs**, so a pattern cut from 1.x still matches one cut from 2.x. `RUST_CONVERSION_PLAN.md` records the whole conversion: what each phase did, what went wrong, and which defects were carried over on purpose rather than quietly fixed.
-
-The JavaScript is not gone, just no longer checked out. It is tagged `js-final`:
-
-```sh
-git show js-final:app/utils/ellipsoid.js
-```
 
 ## License
 

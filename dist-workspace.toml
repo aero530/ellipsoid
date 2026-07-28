@@ -7,8 +7,14 @@ members = ["cargo:."]
 cargo-dist-version = "0.32.0"
 # CI backends to support
 ci = "github"
-# The installers to generate for each app
-installers = ["shell", "powershell", "msi"]
+# The installers to generate for each app.
+#
+# No "msi": the Windows installer is built by installer/build.ps1 and published by
+# .github/workflows/installer.yml. dist's msi is a cargo-wix template that has to be hand-edited
+# to be usable and then defended from `dist generate`, it installs per-machine behind a UAC
+# prompt, and it produces one package per binary — so the app and the command-line tool arrived
+# as two separate installs of the same program. See the plan's Appendix Y.
+installers = ["shell", "powershell"]
 # Target platforms to build apps for (Rust target-triple syntax).
 #
 # No aarch64-unknown-linux-gnu: dist would build it on an x86_64 runner, and
@@ -23,14 +29,6 @@ install-path = "CARGO_HOME"
 hosting = "github"
 # Whether to install an updater program
 install-updater = false
-# The WiX definition is ours now, not dist's.
-#
-# crates/ellipsoid-app/wix/main.wxs is hand-edited to add a Start Menu shortcut
-# and the product icon. Without this, `dist plan` fails outright ("has out of
-# date contents and needs to be regenerated") and takes every release with it,
-# and `dist generate` silently reverts the edits.
-allow-dirty = ["msi"]
-
 # Bevy links against these on Linux; without them the x86_64-unknown-linux-gnu
 # build fails at link time rather than anywhere informative. Same list as the
 # CI workflow installs.

@@ -8,12 +8,6 @@ authors.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
-[package.metadata.wix]
-upgrade-guid = "CAC6D4C6-A1B1-4BE7-B39A-5DC6023DC669"
-path-guid = "80ADA7C1-B427-4247-8FA9-AE745DF71171"
-license = false
-eula = false
-
 # Only used on Windows, and only to put the icon and the version stamp into the
 # .exe — see build.rs. Not needed to build or run the app.
 [target.'cfg(windows)'.build-dependencies]
@@ -40,6 +34,12 @@ bevy = { workspace = true, features = ["multi_threaded"] }
 # Default features are xdg-portal + wayland, so no GTK dependency on Linux and
 # CI needs no extra system packages.
 rfd = "0.17"
+# Both only for the window icon — see `platform::set_window_icon`. Bevy already
+# builds both, and these versions are the ones it resolves, so neither adds a
+# crate to the build. winit in particular has to match whatever bevy_winit
+# picked, since the icon is handed to a window that bevy_winit created.
+winit = "0.30"
+image = { version = "0.25", default-features = false, features = ["png"] }
 # Per-platform config path for the settings remembered between sessions.
 directories = "6"
 

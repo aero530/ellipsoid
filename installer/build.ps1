@@ -295,11 +295,12 @@ function New-UiBitmaps {
             $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
             $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
             $g.Clear([System.Drawing.Color]::White)
-            # The same near-black the application's own panels use, so the installer looks like
-            # the thing it installs.
+            # The icon's own background gradient, read off the two outer stops of `bgGlow` in
+            # resources/ellipsoid.svg. Matching it is what makes the squircle sit *on* the band
+            # rather than float in a rectangle of some other dark colour.
             $band = New-Object System.Drawing.Rectangle(0, 0, 164, 312)
-            $top = [System.Drawing.Color]::FromArgb(32, 32, 32)
-            $bottom = [System.Drawing.Color]::FromArgb(12, 12, 12)
+            $top = [System.Drawing.Color]::FromArgb(26, 38, 54)     # #1a2636
+            $bottom = [System.Drawing.Color]::FromArgb(5, 8, 14)    # #05080e
             $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush($band, $top, $bottom, 90.0)
             try { $g.FillRectangle($brush, $band) } finally { $brush.Dispose() }
             $g.DrawImage($icon, (New-Object System.Drawing.Rectangle(26, 100, 112, 112)))
