@@ -42,7 +42,6 @@ pub struct PatternTransform {
     pub shift: DVec2,
     /// Canvas size in SVG user units.
     pub image: DVec2,
-    projection: Projection,
 }
 
 impl PatternTransform {
@@ -67,7 +66,6 @@ impl PatternTransform {
                 (max.x - min.x + 2.0 * input.image_offset) * ppu,
                 (max.y - min.y + 2.0 * input.image_offset) * ppu,
             ),
-            projection: input.projection,
         }
     }
 
@@ -84,20 +82,24 @@ impl PatternTransform {
         )
     }
 
-    /// The cut outline's own convention, which differs in spherical mode.
+    /// Where the cut outline and the cutouts go.
     ///
-    /// The original adds y for spherical and subtracts it for cylindrical
-    /// (plan §8.7), so the spherical outline is mirrored against every other
-    /// layer. Cutouts have to follow the *outline*, or holes would land on the
-    /// wrong side of the pieces they are meant to be cut from.
+    /// Now identical to [`Self::place`], and kept as a separate name only
+    /// because the distinction is what plan §8.7 was about: the original added
+    /// y in the spherical branch and subtracted it in the cylindrical one,
+    /// while the guide lines, both quadrilateral layers and the notes ruler
+    /// always subtracted. That mirrored the spherical outline against every
+    /// other layer in its own drawing.
+    ///
+    /// The mirror is invisible in the outline itself — a star of petals with one
+    /// on the axis is symmetric about that axis, so reflecting it maps it onto
+    /// itself — which is why it survived the port unnoticed. It was *not*
+    /// invisible for cutouts, which are placed through here: a hole reflected
+    /// about the centre lands on the mirror-image petal, at the mirror-image
+    /// height within it. Congruent petals made that look plausible and cut
+    /// wrong.
     pub fn place_outline(&self, p: DVec3) -> DVec2 {
-        match self.projection {
-            Projection::Spherical => DVec2::new(
-                (self.shift.x + p.x) * self.ppu,
-                (self.shift.y + p.y) * self.ppu,
-            ),
-            Projection::Cylindrical => self.place(p),
-        }
+        self.place(p)
     }
 
     /// The inverse of [`Self::place_outline`]: a point on the page back to flat
@@ -107,12 +109,10 @@ impl PatternTransform {
     /// not carry it. That is enough for [`ellipsoid_core::surface::flat_to_surface`],
     /// which searches in the page plane.
     pub fn unplace_outline(&self, page: DVec2) -> DVec2 {
-        let x = page.x / self.ppu - self.shift.x;
-        let y = match self.projection {
-            Projection::Spherical => page.y / self.ppu - self.shift.y,
-            Projection::Cylindrical => self.shift.y - page.y / self.ppu,
-        };
-        DVec2::new(x, y)
+        DVec2::new(
+            page.x / self.ppu - self.shift.x,
+            self.shift.y - page.y / self.ppu,
+        )
     }
 }
 
@@ -670,9 +670,8 @@ mod tests {
     use super::*;
     use ellipsoid_core::{compute_flat_geometry, compute_geometry};
 
-    /// `unplace_outline` negates y for cylindrical and not for spherical. Get
-    /// that backwards and dragging a cutout moves it the wrong way vertically,
-    /// which is exactly the kind of bug a round trip catches for free.
+    /// A round trip through the page and back must land where it started, or
+    /// dragging a cutout would move it somewhere other than the pointer.
     #[test]
     fn unplace_outline_inverts_place_outline() {
         for projection in [Projection::Spherical, Projection::Cylindrical] {
@@ -695,6 +694,64 @@ mod tests {
                     "{projection:?}: {p} -> {back}"
                 );
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod cutout_placement {
+    use super::*;
+    use ellipsoid_core::surface::{Cutout, SurfaceParam, flat_point};
+    use ellipsoid_core::{compute_flat_geometry, compute_geometry};
+
+    /// A cutout is drawn where the guide lines say its surface point is.
+    ///
+    /// Plan §8.7. The spherical cut outline was placed with `shift.y + y` while
+    /// the guide lines, both quadrilateral layers and the ruler all used
+    /// `shift.y - y`. Cutouts follow the outline, so a hole came out at the
+    /// vertical mirror of its true position — on a star of congruent petals
+    /// that looks entirely plausible and cuts the hole on the wrong petal.
+    ///
+    /// Checked through the whole pipeline rather than on the transform, because
+    /// `place_outline == place` is now true by construction and would pass
+    /// whatever the rest of the layout did.
+    #[test]
+    fn a_cutout_lands_where_the_guides_put_its_surface_point() {
+        let (u, v) = (0.0625, 0.25);
+
+        for projection in [Projection::Spherical, Projection::Cylindrical] {
+            let input = EllipsoidInput {
+                projection,
+                theta_max: 90.0,
+                h_middle: 0.0,
+                h_bottom: 0.0,
+                cutouts: vec![Cutout::hole(u, v, 0.35)],
+                ..Default::default()
+            };
+            let geometry = compute_geometry(&input);
+            let flat = compute_flat_geometry(&geometry, &input);
+            let param = SurfaceParam::new(&geometry);
+            let transform = PatternTransform::new(&input, &flat);
+            let scene = build_scene(&input, &geometry, &flat);
+
+            let layer = scene
+                .layer(LAYER_CUTOUTS)
+                .unwrap_or_else(|| panic!("{projection:?}: no cutouts layer"));
+            let Some(Item::Path { points, .. }) = layer.items.first() else {
+                panic!("{projection:?}: hole did not become a ring");
+            };
+            let centre = points.iter().fold(DVec2::ZERO, |a, p| a + *p) / points.len() as f64;
+
+            let want = transform.place(flat_point(&param, &flat, u, v));
+            // The ring is fitted around the centre, so its centroid sits within
+            // a fraction of the hole's own radius of it.
+            let tolerance = 0.35 * transform.ppu * 0.1;
+            assert!(
+                centre.distance(want) < tolerance,
+                "{projection:?}: hole drawn at {centre:?}, guides put it at {want:?} \
+                 (mirror would be y={})",
+                2.0 * transform.shift.y * transform.ppu - want.y
+            );
         }
     }
 }

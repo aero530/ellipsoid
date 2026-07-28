@@ -388,13 +388,9 @@ fn draw(
 ) -> (egui::Response, Option<Transform>, Option<usize>) {
     let (response, painter) =
         ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
-    // Fit and centre against the visible region rather than the allocated one.
-    //
-    // KNOWN LIMITATION, see `RUST_CONVERSION_PLAN.md` Appendix O. At the
-    // default window size this is still ~250 px wider than what is on screen,
-    // so a fitted pattern runs off the right-hand edge until the window is
-    // widened. `available_size`, `clip_rect` and `ctx().viewport_rect()` all
-    // report the too-large figure, so none of them is the bound that is needed.
+    // `available_size` can overshoot the visible region by a few pixels, which
+    // is enough to clip the bottom of a freshly-fitted pattern. Fit and centre
+    // against the intersection instead.
     let rect = response.rect.intersect(ui.clip_rect());
 
     let content = scene
@@ -501,9 +497,18 @@ fn draw_item(painter: &egui::Painter, item: &Item, transform: &Transform) {
             );
         }
         Item::Text(text) => {
-            let size = text.font_size as f32 * transform.zoom;
-            // Below a few pixels the glyphs are noise; skip rather than clutter.
-            if size < 4.0 {
+            let size = glyph_size(text.font_size as f32 * transform.zoom);
+            if !worth_rasterising(size) {
+                return;
+            }
+            // Off-screen text still costs a full rasterisation, and the notes
+            // sit at the canvas edges — exactly where they leave the view as
+            // soon as anyone zooms in. `layout_no_wrap` is the expensive call,
+            // so cull before it rather than leaving it to the clip rect.
+            let b = item.bounds();
+            let on_screen =
+                egui::Rect::from_two_pos(transform.apply(b.min), transform.apply(b.max));
+            if !painter.clip_rect().intersects(on_screen) {
                 return;
             }
             let font = if text.font_family.eq_ignore_ascii_case("Courier New") {
@@ -539,10 +544,116 @@ fn draw_item(painter: &egui::Painter, item: &Item, transform: &Transform) {
     }
 }
 
+/// Largest glyph height, in screen pixels, that is worth asking egui for.
+///
+/// The real constraint is egui's font atlas: glyphs are packed into a texture
+/// at most 2048 wide, and `epaint` *panics* rather than declining when one will
+/// not fit. Scaling font size by the view's zoom meant the ruler labels — 0.2
+/// of a unit, so ~19 px at 1:1 — blew past that at about 100× and took the
+/// whole app down. This is far below the atlas limit and already far above
+/// anything legible on screen.
+const MAX_GLYPH_PX: f32 = 256.0;
+
+/// Snap a font size to a step, so zooming cannot mint unbounded font instances.
+///
+/// `epaint` caches rasterised glyphs per `FontId`, and a `FontId` carries the
+/// size as an exact `f32`. Scaling text by a smoothly changing zoom therefore
+/// asks for a *new* font on almost every frame, each one rasterising its own
+/// copy of every glyph drawn — which fills the atlas and gets as far as
+/// `epaint texture atlas overflowed!`.
+///
+/// Rounding to whole pixels below 32 and to multiples of 8 above caps the whole
+/// range at about fifty distinct sizes. The visible difference between adjacent
+/// steps while zooming is nothing; the difference in glyph churn is the bug.
+fn glyph_size(size: f32) -> f32 {
+    if size < 32.0 {
+        size.round()
+    } else {
+        (size / 8.0).round() * 8.0
+    }
+}
+
+/// Whether text at this on-screen size should be drawn at all.
+///
+/// Below a few pixels the glyphs are noise. Above [`MAX_GLYPH_PX`] they cannot
+/// be rasterised, and clamping instead of skipping would be worse than either:
+/// the notes are a *ruler*, so a label held at a size the drawing has outgrown
+/// would misreport scale, which is the one thing it exists to convey.
+fn worth_rasterising(size: f32) -> bool {
+    (4.0..=MAX_GLYPH_PX).contains(&size)
+}
+
 /// Scale stroke width with the view, but never let a line vanish.
 fn line_stroke(stroke: ellipsoid_pattern::Stroke, transform: &Transform) -> egui::Stroke {
     egui::Stroke {
         width: (stroke.width as f32 * transform.zoom).max(0.75),
         color: to_color32(stroke.color),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The ruler label size the notes layer uses, at 96 px/in.
+    const RULER_PX: f32 = 0.2 * 96.0;
+
+    /// Zooming smoothly must not mint a new font size per frame — that is what
+    /// overflowed the glyph atlas.
+    #[test]
+    fn zooming_asks_for_only_a_handful_of_sizes() {
+        let sizes: std::collections::BTreeSet<u32> = (0..20_000)
+            .map(|i| {
+                let zoom = MIN_ZOOM * (MAX_ZOOM / MIN_ZOOM).powf(i as f32 / 20_000.0);
+                glyph_size(RULER_PX * zoom)
+            })
+            .filter(|s| worth_rasterising(*s))
+            .map(|s| s.to_bits())
+            .collect();
+
+        assert!(
+            sizes.len() <= 64,
+            "{} distinct font sizes across the zoom range",
+            sizes.len()
+        );
+        // And it must not collapse to so few that text visibly jumps.
+        assert!(sizes.len() >= 16, "only {} sizes; too coarse", sizes.len());
+    }
+
+    #[test]
+    fn quantising_stays_close_to_the_size_asked_for() {
+        for size in [4.0_f32, 7.3, 12.9, 31.7, 40.0, 100.0, 255.0] {
+            let snapped = glyph_size(size);
+            let step = if size < 32.0 { 0.5 } else { 4.0 };
+            assert!(
+                (snapped - size).abs() <= step,
+                "{size} snapped to {snapped}"
+            );
+        }
+    }
+
+    #[test]
+    fn deep_zoom_does_not_ask_for_an_unrasterisable_glyph() {
+        // This crashed the app: `epaint` panics rather than declining when a
+        // glyph will not fit its atlas, so the ceiling has to be ours.
+        assert!(!worth_rasterising(RULER_PX * MAX_ZOOM));
+        // The threshold is around 13x for a ruler label. Either side of it.
+        assert!(worth_rasterising(RULER_PX * 10.0));
+        assert!(!worth_rasterising(RULER_PX * 100.0));
+    }
+
+    #[test]
+    fn text_too_small_to_read_is_still_skipped() {
+        assert!(!worth_rasterising(RULER_PX * MIN_ZOOM));
+        assert!(!worth_rasterising(3.9));
+        assert!(worth_rasterising(4.0));
+    }
+
+    #[test]
+    fn the_ceiling_clears_nothing_a_person_could_read() {
+        // A cap that cut into legible sizes would be a worse bug than the
+        // crash it prevents. 64 px is already a headline.
+        assert!(worth_rasterising(64.0));
+        assert!(worth_rasterising(MAX_GLYPH_PX));
     }
 }

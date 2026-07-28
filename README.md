@@ -1,5 +1,7 @@
 # Ellipsoid Pattern Generator
 
+**[Live Demo](https://aero530.github.io/ellipsoid/)**
+
 Generate an SVG flat pattern of a general ellipsoid. Originally built to cut helmet shells out of foam on a laser cutter.
 
 Give it three semi-axes and a few options; it unrolls the surface into panels you can print, cut, and glue back into the shape.

@@ -445,7 +445,7 @@ There's no filesystem in the browser. The trait in Phase 7 handles it, but note 
 
 6. **`hTop` special-case index mismatch between projections.** Spherical checks `indexT === divisions - 1` and `divisions - 2`; cylindrical checks `indexT === divisions` inside a loop bounded by `indexWide`, so that condition may be unreachable (`ellipsoid.js:391` and `ellipsoid.js:418`). **Confirmed unreachable in Phase 1** — `it` stops below `indexWide`, itself at most `divisions - 1`. Ported and marked dead; the spherical/cylindrical asymmetry remains unexplained.
 
-7. **The spherical cut outline is mirrored relative to its own guide lines.** *(Found in Phase 2.)* The outline assembly places points with `shift.y + y` in the spherical branch (`ellipsoid.js:604`) but `shift.y - y` in the cylindrical one (`ellipsoid.js:632`) — while the guide lines, both quadrilateral layers, and the notes ruler *always* use `shift.y - y`. So in spherical mode the cut outline is flipped vertically against every other layer in the same drawing.
+7. **The spherical cut outline is mirrored relative to its own guide lines.** ✅ **FIXED** — see Appendix R. *(Found in Phase 2.)* The outline assembly places points with `shift.y + y` in the spherical branch (`ellipsoid.js:604`) but `shift.y - y` in the cylindrical one (`ellipsoid.js:632`) — while the guide lines, both quadrilateral layers, and the notes ruler *always* use `shift.y - y`. So in spherical mode the cut outline is flipped vertically against every other layer in the same drawing.
 
    Ported as-is and covered by the layout goldens. Worth a look before fixing: the spherical pattern is radially symmetric enough that a vertical flip may go unnoticed on the outline itself, but the green guide lines would land on the wrong side of it. Cylindrical is unaffected, and it is the default.
 
@@ -1136,7 +1136,7 @@ It ships inside every release archive `dist` builds, so it was the last Electron
 
 Rewritten around what someone arriving at the repository actually needs: what it makes, how to install it, the pointer gestures for editing cutouts (which are not discoverable from the UI alone), the CLI, how to build, and what each crate is for. **Every command in it was run**, which caught the CLI section being wrong: it documented subcommands (`ellipsoid svg -o …`) that do not exist. The real interface is `--format`, and `--theta-divisions` is spelled `--divisions-theta`.
 
-## Appendix O — Three reported defects, and a fourth found while fixing them
+## Appendix O — Three reported defects, one of which was my own tooling
 
 A follow-up after the screenshots. Of the three problems reported alongside them, **only the unit naming was real as described**; the other two were misdiagnosed, and the record below is mostly about how.
 
@@ -1166,14 +1166,21 @@ The earlier `merging_follows_min_gap` came out one ring at every `min_gap` once 
 
 Guide lines are fold and glue marks, so a guide crossing a hole marks material that is not there. `draw_cutouts` now splits each guide segment at every crossing with a cutout and keeps only the parts still on panel; a segment swallowed whole disappears. Ray casting for the inside test, because a drawn shape can be concave.
 
-### Not fixed: the fitted pattern overflows a narrow window
+### Not a defect at all: "the fitted pattern overflows a narrow window"
 
-Misdiagnosed twice, and the second diagnosis was right about *where* but not *what*. It is not that fitting overestimates the height — at 1920×1080 the fit is exact (pane 1418×979, content 2052×1127, drawn 1347×740).
+Reported here twice, with two different explanations, and **both were wrong. There was never a bug.** Recorded in full because the mistake was mine and it cost more than either of the real fixes in this appendix.
 
-It goes wrong when the window is narrow enough that the two left panels stop yielding width, **which includes the default window size**. There the preview reports a pane about 250 px wider than the window, fits to that, and puts the right of the pattern off screen: 37% where 26% would fit. Widening the window fixes it, which is why the larger captures never showed it.
+The evidence was always screenshots, captured by a PowerShell helper using `GetWindowRect` and `PrintWindow`. That process was **DPI-unaware**, and this display runs at 150%. Windows therefore virtualised the window rect for it: `GetWindowRect` reported 1295×757 for a window whose real client was 1920×1080, and `PrintWindow` rendered into a bitmap that size — capturing the top-left two-thirds and cropping the rest. A pattern fitted correctly inside its pane looks exactly like one running off the right-hand edge when the right-hand third of the image is simply missing.
 
-`available_size()`, `ui.clip_rect()` and `ctx().viewport_rect()` all report the too-large figure, so intersecting with any of them changes nothing — tried, and reverted rather than left as dead code. The bound has to come from the panel layout, and the `Panel::bottom`/`Panel::right` oddities already recorded in [`ui`] suggest the background-layer viewport `Ui` is where to look.
+Calling `SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)` in the capture script settles it: the full window arrives, and the pattern sits inside its pane with margins on all four sides and the ruler visible.
 
+The instrumentation had already said so and was not believed. At 1920×1080: pane 1418×979, content 2051×1127, drawn 1347×740 — fits. At 1280×720: pane 790×619, drawn 751×469 — fits. Two measurements that agreed with each other and disagreed with the screenshots, and the screenshots were trusted anyway.
+
+**The second diagnosis was wrong in a more interesting way.** The 1.5× discrepancy between egui's numbers and the screenshot was real, and it is exactly `pixels_per_point`. That led to a plausible story: `bevy_egui`'s `update_ui_screen_rect` divides the camera's *physical* rect by `EguiOutput::pixels_per_point`, an output being read back as an input, which defaults to 1.0 — so on a scaled display the rect would come back in physical pixels while everything inside it is in points. A fix was written for it. It computes `physical_width() / pixels_per_point`, which on this machine is 1920 / 1.5 = 1280 — **the same number `viewport_rect()` already returned**. The upstream code is right, the output does get updated, and the "fix" was a no-op dressed up in a confident comment. Reverted.
+
+The lesson is not about egui. It is that a measurement disagreeing with a screenshot means one of the two is lying, and *the tool doing the observing* is a candidate. Three phases of notes in [`ui`] and [`preview`] about "`available_height` reports far more space than is actually on screen" were probably the same artefact all along, though the workarounds built on them are harmless and stay.
+
+`screenshots/app.png` was regenerated: the shipped one was cropped by the same tooling.
 ## Appendix P — The `theta_max` fix, and retiring the JavaScript reference
 
 Reported from the app: adding `hTop` to an open-topped ellipsoid drew the extension folded *into* each panel instead of continuing beyond its tip. §8.1's bug, exactly where §8.1 predicted it.
@@ -1206,3 +1213,52 @@ The tolerance dropped from `1e-9` to `1e-12`: comparing against our own output, 
 ### A runaway loop, found by the snapshots
 
 Generating SVG snapshots for all 63 cases with cutouts hung. `densify`'s search for strip boundaries along an edge was a `while` loop bounded only by the edge's own extent, and a rim fit that diverges near a degenerate apex produces an edge spanning millions of strips. Now capped: an edge crossing more than a few turns is left alone for the clip to discard. The snapshot matrix itself carries no cutouts — layout is what it is for, and the cutout paths have their own unit tests.
+
+## Appendix Q — Zooming in far enough crashed the app
+
+Reported as a panic from `ui::draw`:
+
+```text
+Tried to allocate a 65535 wide glyph in a 2048 wide texture atlas
+```
+
+The preview scales font size by the view's zoom so labels track the drawing, and the guard on that only had a floor — below four pixels the glyphs are noise, so they are skipped. There was no ceiling. `epaint` packs glyphs into a texture at most 2048 wide and **panics** rather than declining when one will not fit, so a ruler label — 0.2 of a unit, about 19 px at 1:1 — took the whole app down somewhere north of 100× zoom. The 65535 in the message is a saturated `u16`, not a real size.
+
+Fixed with a ceiling of 256 px, well under the atlas limit and well over anything legible. **Skipping rather than clamping**, deliberately: the notes are a *ruler*, so a label pinned at a size the drawing has outgrown would misreport scale, which is the one thing it exists to convey. At that zoom the labels are off-screen anyway.
+
+The decision is a pure function with the boundaries under test, including the case that crashed (`MAX_ZOOM` × a ruler label) and one asserting the ceiling does not cut into legible sizes — a cap that hid text a person could read would be a worse bug than the crash it prevents.
+
+`draw_item`'s text arm is the only place in the app where a font size is computed from data rather than fixed, so the guard is exhaustive.
+
+### …and then overflowed the atlas while zooming
+
+Same area, reported next: `epaint texture atlas overflowed!`, this time a warning rather than a panic.
+
+`epaint` caches rasterised glyphs per `FontId`, and a `FontId` carries its size as an exact `f32`. Scaling text by a smoothly changing zoom therefore asks for a *new* font on almost every frame, each one rasterising its own copy of every glyph drawn. The ceiling above bounds how large a glyph can get; it does nothing about how many distinct sizes get requested on the way there.
+
+Two changes, both cheap:
+
+- **`glyph_size` snaps the size to a step** — whole pixels below 32, multiples of 8 above — which caps the entire zoom range at about fifty distinct sizes. A test sweeps `MIN_ZOOM` to `MAX_ZOOM` and asserts the count stays under 64 *and* over 16, because collapsing to a handful would make text visibly jump instead.
+- **Off-screen text is culled before `layout_no_wrap`**, using the bounds `Item::bounds` already computes (rotation included). The notes sit at the canvas edges and leave the view as soon as anyone zooms in, and the settings stamp is a 200-character string — by far the largest contributor to the churn, and entirely invisible at the zoom levels where it hurt.
+
+Verified by driving it rather than reasoning about it. Injected input cannot reach this window through `SendInput` — a background process cannot raise it to the foreground — but `WM_MOUSEWHEEL` posted straight to the window bypasses focus entirely. Eight hundred notches sweeping the full zoom range in both directions: no overflow, no panic, and the zoom demonstrably responded.
+
+## Appendix R — §8.7, the mirrored spherical outline
+
+The last item on §8's list. The original placed the cut outline with `shift.y + y` in the spherical branch while the guide lines, both quadrilateral layers and the notes ruler all used `shift.y - y`. `place_outline` now just calls `place`, and the projection field it needed is gone.
+
+### Why it hid for so long, and where it actually bit
+
+The first two attempts to *detect* it failed, and the reason turned out to be the interesting part.
+
+Comparing the outline's bounding box with the guide lines' found nothing: the flat star is centred on the origin, so reflecting it about the canvas centre gives the same extent. Measuring the distance from every guide endpoint to the nearest outline vertex found **zero** — the outline was landing exactly on the guides. Trying it with nine petals instead of eight, on the theory that odd counts break the symmetry, also gave zero.
+
+A star of petals with one petal on the axis *is* symmetric about that axis, whatever the count, and each petal is symmetric about its own radial line. So reflecting the outline maps it onto itself, point for point. The proof is that regenerating `screenshots/pattern-spherical.png` after the fix produced a **byte-identical file**, and 31 of the 63 SVG snapshots changed only in the order their outline points are emitted.
+
+Cutouts are the exception, and they are placed through the same function. A hole reflected about the centre lands on the mirror-image petal, at the mirror-image height within it — and since every petal is congruent, the result looks entirely plausible and cuts in the wrong place. Measured on a hole at `u = 0.0625, v = 0.25`: drawn at y = 467 where the guide lines put that surface point at y = 827, either side of a canvas centre at 647.
+
+### The test
+
+`a_cutout_lands_where_the_guides_put_its_surface_point` asserts a hole's ring centroid coincides with `place(flat_point(u, v))`, in both projections. Deliberately end-to-end rather than on the transform: `place_outline == place` is now true by construction and a test at that level would pass no matter what the rest of the layout did.
+
+That invariant is the one worth having anyway — a cutout you cannot locate relative to the fold lines is not much use — and it is what the earlier geometric probes were groping for.
