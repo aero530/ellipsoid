@@ -388,9 +388,13 @@ fn draw(
 ) -> (egui::Response, Option<Transform>, Option<usize>) {
     let (response, painter) =
         ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
-    // `available_size` can overshoot what is actually on screen by a dozen
-    // pixels, which is enough to clip the bottom of a freshly-fitted pattern.
-    // Fit and centre against the visible region instead.
+    // Fit and centre against the visible region rather than the allocated one.
+    //
+    // KNOWN LIMITATION, see `RUST_CONVERSION_PLAN.md` Appendix O. At the
+    // default window size this is still ~250 px wider than what is on screen,
+    // so a fitted pattern runs off the right-hand edge until the window is
+    // widened. `available_size`, `clip_rect` and `ctx().viewport_rect()` all
+    // report the too-large figure, so none of them is the bound that is needed.
     let rect = response.rect.intersect(ui.clip_rect());
 
     let content = scene

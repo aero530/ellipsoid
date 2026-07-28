@@ -40,7 +40,7 @@
   </g>
   <g id="Notes" inkscape:groupmode="layer" inkscape:label="Notes">
     <text x="14.4" y="205.815" font-family="Roboto" font-size="24" fill="rgb(0,0,0)" text-anchor="middle" dominant-baseline="central" transform="rotate(-90,14.4,205.815)">ellipsoid_a2.00in_b1.50in_c1.75in.svg</text>
-    <text x="9.6" y="14.4" font-family="Courier New" font-size="5.083" fill="rgb(0,0,0)">{&quot;a&quot;:2.0,&quot;b&quot;:1.5,&quot;c&quot;:1.75,&quot;h_top&quot;:0.0,&quot;h_middle&quot;:0.5,&quot;h_bottom&quot;:0.25,&quot;h_top_fraction&quot;:1.0,&quot;h_top_shift&quot;:0.0,&quot;phi_divisions&quot;:4,&quot;theta_divisions&quot;:4,&quot;theta_min&quot;:-35.0,&quot;theta_max&quot;:90.0,&quot;unit&quot;:&quot;inch&quot;,&quot;image_offset&quot;:0.5,&quot;min_gap&quot;:0.001,&quot;projection&quot;:&quot;cylindrical&quot;,&quot;inkscape_layers&quot;:true}</text>
+    <text x="9.6" y="14.4" font-family="Courier New" font-size="5.119" fill="rgb(0,0,0)">{&quot;a&quot;:2.0,&quot;b&quot;:1.5,&quot;c&quot;:1.75,&quot;h_top&quot;:0.0,&quot;h_middle&quot;:0.5,&quot;h_bottom&quot;:0.25,&quot;h_top_fraction&quot;:1.0,&quot;h_top_shift&quot;:0.0,&quot;phi_divisions&quot;:4,&quot;theta_divisions&quot;:4,&quot;theta_min&quot;:-35.0,&quot;theta_max&quot;:90.0,&quot;unit&quot;:&quot;in&quot;,&quot;image_offset&quot;:0.5,&quot;min_gap&quot;:0.001,&quot;projection&quot;:&quot;cylindrical&quot;,&quot;inkscape_layers&quot;:true}</text>
     <path d="M48,486.615 L48,457.815" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
     <path d="M48,486.615 L48,457.815" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
     <text x="48" y="472.215" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">0in</text>

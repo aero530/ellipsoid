@@ -263,6 +263,14 @@ fn clip_to_rect(polygon: &[DVec2], min: DVec2, max: DVec2) -> Vec<DVec2> {
 ///
 /// A hole in the middle of a strip yields a single piece. One over a seam
 /// yields two, each belonging to a different cut piece.
+///
+/// # A shape can still be split where the outline shows no seam
+///
+/// `draw_edges` draws two panels as one piece when the gap between them is no
+/// more than `min_gap`, but the pieces here are always divided at the strip
+/// boundary. A shape crossing such a seam therefore comes back as two holes a
+/// hair apart, leaving a sliver of material across the middle of what looks
+/// like solid panel. See `RUST_CONVERSION_PLAN.md` Appendix O.
 pub fn pieces(
     param: &SurfaceParam,
     _geometry: &Geometry,
@@ -602,5 +610,140 @@ mod tests {
         ];
         let clipped = clip_to_rect(&square, DVec2::new(5.0, 5.0), DVec2::new(6.0, 6.0));
         assert!(clipped.is_empty(), "{clipped:?}");
+    }
+}
+
+#[cfg(test)]
+mod seam_tests {
+    use super::*;
+    use crate::layout::PatternTransform;
+    use ellipsoid_core::{EllipsoidInput, compute_flat_geometry, compute_geometry};
+
+    /// Count the closed rings `cutouts` leave in the pattern.
+    ///
+    /// A cutout wholly inside the pattern is one hole, however many panel
+    /// strips it happens to span — the pieces are adjacent, so the boolean
+    /// should weld them. An extra ring means a chord was left along a seam.
+    ///
+    /// Takes the whole set rather than one shape because `draw_cutouts`
+    /// subtracts them in a single pass, and a shape that welds on its own has
+    /// been seen not to when other cutouts are in the same pass.
+    fn rings(input: &EllipsoidInput, cutouts: &[Cutout]) -> usize {
+        let geometry = compute_geometry(input);
+        let flat = compute_flat_geometry(&geometry, input);
+        let param = SurfaceParam::new(&geometry);
+        let transform = PatternTransform::new(input, &flat);
+
+        let pieces: Vec<Vec<DVec2>> = cutouts
+            .iter()
+            .flat_map(|c| pieces(&param, &geometry, &flat, c))
+            .map(|piece| {
+                piece
+                    .into_iter()
+                    .map(|p| transform.place_outline(p))
+                    .collect()
+            })
+            .collect();
+
+        // The cut outline, as `draw_cutouts` gets it.
+        let scene = crate::layout::draw_edges(input, &flat);
+        let outline = match scene
+            .layer(crate::layout::LAYER_PATTERN)
+            .and_then(|l| l.items.first())
+        {
+            Some(crate::Item::Path { points, .. }) => points.clone(),
+            _ => panic!("no cut outline"),
+        };
+
+        subtract_from_outline(&outline, &pieces).1.len()
+    }
+
+    fn base() -> EllipsoidInput {
+        EllipsoidInput {
+            h_middle: 2.625,
+            h_top_shift: 0.125,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_shape_spanning_a_seam_is_still_one_hole() {
+        let input = base();
+        // Every seam, so a defect that only shows on some of them cannot hide.
+        for strip in 1..input.phi_divisions {
+            let seam = strip as f64 / input.phi_divisions as f64;
+            let shape = Cutout::polygon(vec![
+                [seam - 0.055, 0.38],
+                [seam + 0.050, 0.38],
+                [seam + 0.055, 0.46],
+                [seam + 0.005, 0.53],
+                [seam - 0.050, 0.46],
+            ]);
+            assert_eq!(
+                rings(&input, &[shape]),
+                1,
+                "shape across the seam at u={seam} came back as more than one ring"
+            );
+        }
+    }
+
+    #[test]
+    fn a_hole_spanning_a_seam_is_still_one_hole() {
+        let input = base();
+        for strip in 1..input.phi_divisions {
+            let seam = strip as f64 / input.phi_divisions as f64;
+            assert_eq!(
+                rings(&input, &[Cutout::hole(seam, 0.45, 0.9)]),
+                1,
+                "hole across the seam at u={seam} came back as more than one ring"
+            );
+        }
+    }
+
+    /// A shape spanning a seam the outline has *merged* should be one hole.
+    ///
+    /// **Known failure — see `RUST_CONVERSION_PLAN.md` Appendix O.** `min_gap`
+    /// decides whether two panels are drawn as one piece. Where they are, there
+    /// is no cut edge between them, so a shape crossing that seam has nothing
+    /// to be divided by; splitting it anyway leaves a sliver of material a hair
+    /// wide across the middle of the hole. [`pieces`] always divides at the
+    /// strip boundary and knows nothing of `min_gap`, so it splits regardless.
+    ///
+    /// The second half of the test is what makes this hard to fix casually:
+    /// where the panels really are further apart than `min_gap`, the seam *is*
+    /// a cut edge and two holes is the right answer. Widening the pieces enough
+    /// to fuse the first case makes them reach the panel edge in the second,
+    /// turning two correct holes into notches.
+    #[test]
+    #[ignore = "known defect: pieces are split at every seam, merged or not"]
+    fn merging_follows_min_gap() {
+        let shape = Cutout::polygon(vec![
+            [0.68, 0.36],
+            [0.82, 0.36],
+            [0.86, 0.50],
+            [0.75, 0.58],
+            [0.64, 0.50],
+        ]);
+
+        let merged = EllipsoidInput {
+            min_gap: 0.005,
+            ..base()
+        };
+        assert_eq!(
+            rings(&merged, std::slice::from_ref(&shape)),
+            1,
+            "the panels are drawn as one piece, so the hole must be one ring"
+        );
+
+        // The default. The panels are 0.0013 in apart at these rows — wider
+        // than `min_gap`, so the outline draws the seam and the shape is
+        // genuinely divided between two panels.
+        let separate = base();
+        assert_eq!(separate.min_gap, 0.001);
+        assert_eq!(
+            rings(&separate, std::slice::from_ref(&shape)),
+            2,
+            "the panels are cut apart, so each must carry its own hole"
+        );
     }
 }

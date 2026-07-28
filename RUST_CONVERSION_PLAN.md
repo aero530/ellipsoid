@@ -1135,3 +1135,29 @@ Removing the source turned 36 markdown links in this document into 404s — ever
 It ships inside every release archive `dist` builds, so it was the last Electron artefact left in the *product*, not just the repo — install instructions pointing at `yarn dev`, a clone URL for `electron-react-boilerplate`, and sections on CSS modules and SASS.
 
 Rewritten around what someone arriving at the repository actually needs: what it makes, how to install it, the pointer gestures for editing cutouts (which are not discoverable from the UI alone), the CLI, how to build, and what each crate is for. **Every command in it was run**, which caught the CLI section being wrong: it documented subcommands (`ellipsoid svg -o …`) that do not exist. The real interface is `--format`, and `--theta-divisions` is spelled `--divisions-theta`.
+
+## Appendix O — Three reported defects, one fixed
+
+A follow-up after the screenshots. Of the three problems reported alongside them, **only the unit naming was real as described**; the other two were misdiagnosed, and the record below is mostly about how.
+
+### Fixed: settings JSON now spells units the way the UI does
+
+`Unit` serialised as `inch`/`mm`/`cm` while the UI and CLI both say `in`. A hand-written settings file using `"unit": "in"` was rejected. It now serialises as `in`, with `inch` kept as a serde alias — every version up to this one wrote `inch`, including into the settings remembered between sessions, and a stored file that suddenly stopped loading is a poor trade for a tidier name.
+
+The CLI's SVG snapshot moved: the notes stamp embeds the settings and is auto-sized to fit, so two fewer characters changed the font size as well as the text.
+
+### Not fixed: a shape split across a seam the outline has merged
+
+**The first diagnosis was wrong.** The chord through a polygon in the sample render is not a boolean failing to weld adjacent pieces. Measuring the two rings showed their facing edges 0.0013 in apart — the genuine gap between two panels — and the outline itself has a seam there. With `min_gap` at its default 0.001 in, those panels *are* cut apart, so two holes is the correct answer. The line is two panel edges plus two hole edges rendering within a tenth of a pixel of each other, and no export resolution separates them: the stroke width scales with the drawing.
+
+Raising `min_gap` to 0.005 in exposes the real defect. The outline then draws the panels as one piece — no seam — but [`pieces`] still divides the shape at the strip boundary, because it splits at every seam and knows nothing of `min_gap`. The result is two holes a hair apart in what looks like solid panel, leaving a sliver of material across the middle. `merging_follows_min_gap` captures both halves and is `#[ignore]`d.
+
+**Two attempted fixes were backed out.** Overlapping the pieces by a fixed hair welded them into a single *pinched* contour — one ring with a zero-width spike down the seam, worse than two clean ones. Scaling the overlap to `min_gap` through the local Jacobian merged the right cases but made the pieces reach the panel edge in the cases that should stay split, turning two correct holes into notches. A real fix has to ask, per theta row, the same question `draw_edges` asks — `distance(e[prev][it][1], e[ip][it][0]) > min_gap` — and a shape spans rows where the answer differs, so "split or not" is not one decision for the whole shape.
+
+### Not fixed: the fitted pattern overflows a narrow window
+
+Also misdiagnosed. It is not that fitting overestimates the height — at 1920×1080 the fit is exactly right (pane 1418×979, content 2052×1127, drawn 1347×740).
+
+It goes wrong when the window is narrow enough that the two left panels stop yielding width, **which includes the default window size**. There the preview reports a pane about 250 px wider than the window, fits to that, and puts the right of the pattern off screen: 37% where 26% would fit. Widening the window fixes it, which is why it never showed up in the larger captures.
+
+`available_size()`, `ui.clip_rect()` and `ctx().viewport_rect()` all report the too-large figure, so intersecting with any of them changes nothing — tried, and reverted rather than left as dead code. The bound that is actually needed has to come from the panel layout, and the surrounding `Panel::bottom`/`Panel::right` oddities recorded in [`ui`] suggest the background-layer viewport `Ui` is where to look.

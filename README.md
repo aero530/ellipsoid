@@ -4,11 +4,19 @@ Generate an SVG flat pattern of a general ellipsoid. Originally built to cut hel
 
 Give it three semi-axes and a few options; it unrolls the surface into panels you can print, cut, and glue back into the shape.
 
-![screenshot_001](https://raw.githubusercontent.com/aero530/ellipsoid/master/screenshots/screenshot_001.PNG "screenshot")
+![The application: settings, a 3D ellipsoid and its flattened panels, and the flat pattern](screenshots/app.png)
 
-![sample_output](https://github.com/aero530/ellipsoid/raw/master/screenshots/ellipsoid_a3.75in_b2.88in_c3.00in.png "sample_output")
+Unroll **cylindrically**, into vertical gores from the front:
 
-![sample_output_spherical](https://github.com/aero530/ellipsoid/raw/master/screenshots/ellipsoid_a3.75in_b2.88in_c3.00in_spherical.png "sample_output_spherical")
+![A cylindrical flat pattern: eight tapered gores joined by a continuous band](screenshots/pattern-cylindrical.png)
+
+…or **spherically**, into petals from the top:
+
+![A spherical flat pattern: eight petals radiating from a central hub](screenshots/pattern-spherical.png)
+
+Cutouts are subtracted from the pattern. One that reaches a panel edge opens it, so the two halves form the shape once the panels are joined — here the hole on the seam left facing scallops on the two petals that meet there:
+
+![The same cylindrical pattern with three round holes and a five-sided shape cut out of it](screenshots/pattern-cutouts.png)
 
 ## Features
 
