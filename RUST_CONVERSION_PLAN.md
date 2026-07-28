@@ -421,7 +421,7 @@ There's no filesystem in the browser. The trait in Phase 7 handles it, but note 
 
 **Decision: port all of these faithfully, get parity green, then fix each in its own commit with a test documenting the change.** Otherwise a porting mistake is indistinguishable from an intentional fix.
 
-1. **`thetaMax` computed from `thetaMin`.** `ellipsoid.js:285`:
+1. **`thetaMax` computed from `thetaMin`.** ✅ **FIXED** — see Appendix P. `ellipsoid.js:285`:
    ```js
    const thetaMax = (settings.thetaMax === 90) ? 89*Math.PI/180 : settings.thetaMin * Math.PI/180;
    ```
@@ -1136,7 +1136,7 @@ It ships inside every release archive `dist` builds, so it was the last Electron
 
 Rewritten around what someone arriving at the repository actually needs: what it makes, how to install it, the pointer gestures for editing cutouts (which are not discoverable from the UI alone), the CLI, how to build, and what each crate is for. **Every command in it was run**, which caught the CLI section being wrong: it documented subcommands (`ellipsoid svg -o …`) that do not exist. The real interface is `--format`, and `--theta-divisions` is spelled `--divisions-theta`.
 
-## Appendix O — Three reported defects, one fixed
+## Appendix O — Three reported defects, and a fourth found while fixing them
 
 A follow-up after the screenshots. Of the three problems reported alongside them, **only the unit naming was real as described**; the other two were misdiagnosed, and the record below is mostly about how.
 
@@ -1146,18 +1146,63 @@ A follow-up after the screenshots. Of the three problems reported alongside them
 
 The CLI's SVG snapshot moved: the notes stamp embeds the settings and is auto-sized to fit, so two fewer characters changed the font size as well as the text.
 
-### Not fixed: a shape split across a seam the outline has merged
+### Fixed: a shape drawn across a seam left a strip of panel down the middle
 
-**The first diagnosis was wrong.** The chord through a polygon in the sample render is not a boolean failing to weld adjacent pieces. Measuring the two rings showed their facing edges 0.0013 in apart — the genuine gap between two panels — and the outline itself has a seam there. With `min_gap` at its default 0.001 in, those panels *are* cut apart, so two holes is the correct answer. The line is two panel edges plus two hole edges rendering within a tenth of a pixel of each other, and no export resolution separates them: the stroke width scales with the drawing.
+Reported as a chord, then chased twice down the wrong path. **It was neither a boolean failing to weld adjacent pieces nor anything to do with `min_gap`.**
 
-Raising `min_gap` to 0.005 in exposes the real defect. The outline then draws the panels as one piece — no seam — but [`pieces`] still divides the shape at the strip boundary, because it splits at every seam and knows nothing of `min_gap`. The result is two holes a hair apart in what looks like solid panel, leaving a sliver of material across the middle. `merging_follows_min_gap` captures both halves and is `#[ignore]`d.
+Clipping a shape to a panel strip *creates* a new side along `u = k/N`, running from wherever the outline entered the strip to wherever it left. That side was carried as its two endpoints alone — but the map from `(u, v)` to the page is affine only *within* a grid cell and bends at every boundary, so the side was drawn as a straight chord across something that bends. On the default pattern the seam bows out by 0.6 in where the panels join, and the material between chord and curve survived the subtraction: a 0.64 in strip of panel down the middle of the shape, which is what the report showed.
 
-**Two attempted fixes were backed out.** Overlapping the pieces by a fixed hair welded them into a single *pinched* contour — one ring with a zero-width spike down the seam, worse than two clean ones. Scaling the overlap to `min_gap` through the local Jacobian merged the right cases but made the pieces reach the panel edge in the cases that should stay split, turning two correct holes into notches. A real fix has to ask, per theta row, the same question `draw_edges` asks — `distance(e[prev][it][1], e[ip][it][0]) > min_gap` — and a shape spans rows where the answer differs, so "split or not" is not one decision for the whole shape.
+The measurement that settled it: the seam at `u = 0.5` maps to page x 994.9 through strip 3's frame and 1056.8 through strip 4's at v = 0.1, and to 1025.8 through *both* at v = 0.5 where the panels join — while the two clipped pieces reached only 995.3 and 1056.3. Neither piece ever got near the middle.
+
+`densify` inserts a vertex wherever an edge crosses a cell boundary, and **runs after clipping, not before** — before, it misses the one edge that matters, which is the one clipping creates. Once every edge lies inside a single cell the piecewise-affine map reproduces it exactly, so this is a correction and not an approximation with a tolerance to tune.
+
+A hole's rim never showed any of this: sixty-four segments are short enough that the error vanishes. That is also why the two earlier attempts looked plausible — they were aimed at a symptom that only appeared for shapes with long edges.
+
+What is left afterwards is two triangles a few thousandths of an inch across, where the panels part company along the seam. Real geometry, far under any cutter's kerf, and dropped by an area filter in `draw_cutouts`: anything smaller than the line that would draw it is not a cut.
+
+The earlier `merging_follows_min_gap` came out one ring at every `min_gap` once this was fixed, so it is gone, replaced by an invariant that says what actually matters — the pattern comes back in two pieces and the area removed matches the area asked for.
+
+### Fixed: guide lines no longer run through cutouts
+
+Guide lines are fold and glue marks, so a guide crossing a hole marks material that is not there. `draw_cutouts` now splits each guide segment at every crossing with a cutout and keeps only the parts still on panel; a segment swallowed whole disappears. Ray casting for the inside test, because a drawn shape can be concave.
 
 ### Not fixed: the fitted pattern overflows a narrow window
 
-Also misdiagnosed. It is not that fitting overestimates the height — at 1920×1080 the fit is exactly right (pane 1418×979, content 2052×1127, drawn 1347×740).
+Misdiagnosed twice, and the second diagnosis was right about *where* but not *what*. It is not that fitting overestimates the height — at 1920×1080 the fit is exact (pane 1418×979, content 2052×1127, drawn 1347×740).
 
-It goes wrong when the window is narrow enough that the two left panels stop yielding width, **which includes the default window size**. There the preview reports a pane about 250 px wider than the window, fits to that, and puts the right of the pattern off screen: 37% where 26% would fit. Widening the window fixes it, which is why it never showed up in the larger captures.
+It goes wrong when the window is narrow enough that the two left panels stop yielding width, **which includes the default window size**. There the preview reports a pane about 250 px wider than the window, fits to that, and puts the right of the pattern off screen: 37% where 26% would fit. Widening the window fixes it, which is why the larger captures never showed it.
 
-`available_size()`, `ui.clip_rect()` and `ctx().viewport_rect()` all report the too-large figure, so intersecting with any of them changes nothing — tried, and reverted rather than left as dead code. The bound that is actually needed has to come from the panel layout, and the surrounding `Panel::bottom`/`Panel::right` oddities recorded in [`ui`] suggest the background-layer viewport `Ui` is where to look.
+`available_size()`, `ui.clip_rect()` and `ctx().viewport_rect()` all report the too-large figure, so intersecting with any of them changes nothing — tried, and reverted rather than left as dead code. The bound has to come from the panel layout, and the `Panel::bottom`/`Panel::right` oddities already recorded in [`ui`] suggest the background-layer viewport `Ui` is where to look.
+
+## Appendix P — The `theta_max` fix, and retiring the JavaScript reference
+
+Reported from the app: adding `hTop` to an open-topped ellipsoid drew the extension folded *into* each panel instead of continuing beyond its tip. §8.1's bug, exactly where §8.1 predicted it.
+
+### The fix
+
+The original read `thetaMin` where it meant `thetaMax`. That value feeds the sign-flip guards in both projections, all of which test `> 0`, so reading `thetaMin` produced a negative number and put them on the wrong side of every guard — but only when `0 < thetaMax < 90`, which is why the default (`thetaMax = 90`, closed top) was never affected and this went unnoticed.
+
+The change is one identifier. The before/after render is unmistakable: nine panels each gain the neck that the 3D view had been showing all along.
+
+**Confirming it was the ported bug and not a porting mistake took one step**, and is the whole reason §8's "port faithfully first" rule was worth following. The golden matrix already covered `h_top` at `theta_max` 45 and 60 in both projections, and parity was green at `1e-9` — so the flipped extension was provably what the JavaScript did too.
+
+It diverges **11 of 63** cases, matching the blast radius measured back in Phase 1. Isometry holds for both folds; they are two valid unrollings, and that is exactly why this needed a person to decide rather than a test to catch.
+
+### The JavaScript reference is retired
+
+Keeping the JS goldens as the source of truth stopped making sense the moment the port deliberately disagreed with them. Holding a defunct implementation up as correct, with a growing list of documented exceptions, is maintenance without a payoff.
+
+So `golden/` now holds snapshots of **this** implementation:
+
+- `golden/<case>.json` — geometry, flattening and both OBJ meshes, per case. The `settings` block stays as the case definition, in the original's field names, so the matrix did not have to be retyped.
+- `golden/svg/<case>.svg` — the rendered pattern, which replaces the old `drawEdges` parity. A better thing to pin: it is the artefact that ships, and a diff is readable.
+
+Both regenerate with `UPDATE_GOLDEN=1 cargo test`, deliberately, after reading the diff.
+
+`tools/extract-golden.mjs` and `golden/index.json` are gone with the harness they fed. `crates/ellipsoid-core/tests/invariants.rs` keeps the isometry check, which is the part that judges whether the numbers are *right* rather than merely unchanged — and which held across the fix, for both folds.
+
+The tolerance dropped from `1e-9` to `1e-12`: comparing against our own output, the only slack needed is for a libm or compiler change moving the last place or two.
+
+### A runaway loop, found by the snapshots
+
+Generating SVG snapshots for all 63 cases with cutouts hung. `densify`'s search for strip boundaries along an edge was a `while` loop bounded only by the edge's own extent, and a rim fit that diverges near a degenerate apex produces an edge spanning millions of strips. Now capped: an edge crossing more than a few turns is left alone for the clip to discard. The snapshot matrix itself carries no cutouts — layout is what it is for, and the cutout paths have their own unit tests.

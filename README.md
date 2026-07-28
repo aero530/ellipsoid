@@ -115,7 +115,9 @@ trunk serve                          # http://127.0.0.1:8080
 | [`ellipsoid-app`](crates/ellipsoid-app) | Bevy + egui GUI — one binary for both desktop and web |
 | [`ellipsoid-cli`](crates/ellipsoid-cli) | Headless renderer |
 
-`golden/` holds reference output captured from the original JavaScript, and the parity tests hold the port to it at a `1e-9` relative tolerance. That tolerance is why the core math is `f64`: `f32` cannot reach it.
+`golden/` holds snapshots of the geometry and the SVG across a parameter matrix chosen to hit the branches rather than the defaults. They are regression fixtures, regenerated deliberately with `UPDATE_GOLDEN=1 cargo test` after reading the diff. Alongside them, `tests/invariants.rs` checks properties the output must have — chiefly that unrolling preserves lengths — which is what says the numbers are *right* rather than merely unchanged.
+
+The core math is `f64` because the port was validated against the JavaScript at a `1e-9` relative tolerance, which `f32` cannot reach.
 
 ## About the rewrite
 

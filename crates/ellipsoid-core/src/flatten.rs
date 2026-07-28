@@ -70,15 +70,20 @@ pub fn compute_flat_geometry(geometry: &Geometry, input: &EllipsoidInput) -> Fla
         input.theta_min * PI / 180.0
     };
 
-    // BUG, ported deliberately (plan §8.1): the else-branch reads `theta_min`
-    // where it plainly means `theta_max`. This feeds the sign-flip conditions
-    // in both projections, so it changes output whenever theta_max != 90.
-    // Do not fix here — fix it after the parity harness is green, in its own
-    // commit, with before/after goldens.
+    // FIXED, plan §8.1 and Appendix P. The original read `theta_min` here,
+    // where it plainly meant `theta_max`. The value feeds the sign-flip guards
+    // in both projections, all of which test `> 0`, so reading `theta_min` gave
+    // a negative number and put them on the wrong side whenever
+    // `0 < theta_max < 90` — which folded the `h_top` extension *into* the
+    // panel instead of out beyond it.
+    //
+    // Carried faithfully through the port so that a porting mistake could not
+    // hide behind an intentional fix, then corrected once parity was green.
+    // Output differs from the JavaScript for 11 of the 63 matrix cases.
     let theta_max = if input.theta_max == 90.0 {
         89.0 * PI / 180.0
     } else {
-        input.theta_min * PI / 180.0
+        input.theta_max * PI / 180.0
     };
 
     // Note 0.0001 here against 0.001 in `compute_geometry`. Also the original's.

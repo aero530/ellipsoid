@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.0.dtd" width="2051.64" height="1115.21" viewBox="0 0 2051.64 1115.21">
+  <g id="Ellipsoid Pattern" inkscape:groupmode="layer" inkscape:label="Ellipsoid Pattern">
+    <path d="M48,700.371 L78.947,875.21 L78.947,1067.21 L260.655,1067.21 L260.655,875.21 L303.019,872.274 L303.019,1064.274 L521.803,1064.274 L521.803,872.274 L552.017,872.274 L552.017,1064.274 L770.801,1064.274 L770.801,872.274 L813.165,875.21 L813.165,1067.21 L994.873,1067.21 L994.873,875.21 L1056.767,875.21 L1056.767,1067.21 L1238.475,1067.21 L1238.475,875.21 L1280.839,872.274 L1280.839,1064.274 L1499.622,1064.274 L1499.622,872.274 L1529.837,872.274 L1529.837,1064.274 L1748.621,1064.274 L1748.621,872.274 L1790.985,875.21 L1790.985,1067.21 L1972.693,1067.21 L1972.693,875.21 L2003.64,700.371 L2003.64,700.371 L2003.64,508.371 L2002.595,476.542 L1947.759,268.912 L1835.504,48 L1831.633,48 L1798.373,268.912 L1782.125,476.542 L1780.696,476.56 L1721.876,276.774 L1601.47,88.597 L1596.809,88.597 L1542.009,276.774 L1515.24,476.56 L1514.22,476.56 L1487.45,276.774 L1432.651,88.597 L1427.99,88.597 L1307.583,276.774 L1248.764,476.56 L1247.335,476.542 L1231.087,268.912 L1197.827,48 L1193.955,48 L1081.701,268.912 L1026.864,476.542 L1024.776,476.542 L969.939,268.912 L857.684,48 L853.813,48 L820.553,268.912 L804.305,476.542 L802.876,476.56 L744.056,276.774 L623.65,88.597 L618.989,88.597 L564.189,276.774 L537.42,476.56 L536.4,476.56 L509.63,276.774 L454.831,88.597 L450.17,88.597 L329.763,276.774 L270.944,476.56 L269.515,476.542 L253.267,268.912 L220.007,48 L216.135,48 L103.881,268.912 L49.044,476.542 L48,508.371 Z" fill="rgb(255,255,255)" fill-opacity="0.3" stroke="rgb(0,0,0)" stroke-width="1.6"/>
+  </g>
+  <g id="Bounding Box" inkscape:groupmode="layer" inkscape:label="Bounding Box">
+    <rect x="0" y="0" width="2051.64" height="1115.21" fill="rgb(255,0,128)" fill-opacity="0" stroke="rgb(51,51,51)" stroke-width="0.96"/>
+  </g>
+  <g id="Guide Lines" inkscape:groupmode="layer" inkscape:label="Guide Lines">
+    <g>
+      <path d="M78.947,875.21 L260.655,875.21" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M48,700.371 L269.824,700.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M48,508.371 L269.824,508.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M49.044,476.542 L269.515,476.542" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M103.881,268.912 L253.267,268.912" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M216.135,48 L220.007,48" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M303.019,872.274 L521.803,872.274" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M269.824,700.371 L536.91,700.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M269.824,508.371 L536.91,508.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M270.944,476.56 L536.4,476.56" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M329.763,276.774 L509.63,276.774" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M450.17,88.597 L454.831,88.597" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M552.017,872.274 L770.801,872.274" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M536.91,700.371 L803.996,700.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M536.91,508.371 L803.996,508.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M537.42,476.56 L802.876,476.56" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M564.189,276.774 L744.056,276.774" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M618.989,88.597 L623.65,88.597" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M813.165,875.21 L994.873,875.21" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M803.996,700.371 L1025.82,700.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M803.996,508.371 L1025.82,508.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M804.305,476.542 L1024.776,476.542" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M820.553,268.912 L969.939,268.912" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M853.813,48 L857.684,48" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1056.767,875.21 L1238.475,875.21" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1025.82,700.371 L1247.644,700.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1025.82,508.371 L1247.644,508.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1026.864,476.542 L1247.335,476.542" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1081.701,268.912 L1231.087,268.912" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1193.955,48 L1197.827,48" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1280.839,872.274 L1499.622,872.274" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1247.644,700.371 L1514.73,700.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1247.644,508.371 L1514.73,508.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1248.764,476.56 L1514.22,476.56" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1307.583,276.774 L1487.45,276.774" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1427.99,88.597 L1432.651,88.597" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1529.837,872.274 L1748.621,872.274" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1514.73,700.371 L1781.816,700.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1514.73,508.371 L1781.816,508.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1515.24,476.56 L1780.696,476.56" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1542.009,276.774 L1721.876,276.774" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1596.809,88.597 L1601.47,88.597" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1790.985,875.21 L1972.693,875.21" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1781.816,700.371 L2003.64,700.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1781.816,508.371 L2003.64,508.371" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1782.125,476.542 L2002.595,476.542" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1798.373,268.912 L1947.759,268.912" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M1831.633,48 L1835.504,48" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+    </g>
+  </g>
+  <g id="Notes" inkscape:groupmode="layer" inkscape:label="Notes">
+    <text x="14.4" y="834.41" font-family="Roboto" font-size="24" fill="rgb(0,0,0)" text-anchor="middle" dominant-baseline="central" transform="rotate(-90,14.4,834.41)">ellipsoid_a3.75in_b2.88in_c3.00in.svg</text>
+    <text x="9.6" y="14.4" font-family="Courier New" font-size="12.141" fill="rgb(0,0,0)">{&quot;a&quot;:3.75,&quot;b&quot;:2.875,&quot;c&quot;:3.0,&quot;h_top&quot;:0.0,&quot;h_middle&quot;:2.0,&quot;h_bottom&quot;:2.0,&quot;h_top_fraction&quot;:1.0,&quot;h_top_shift&quot;:0.0,&quot;phi_divisions&quot;:8,&quot;theta_divisions&quot;:3,&quot;theta_min&quot;:-35.0,&quot;theta_max&quot;:90.0,&quot;unit&quot;:&quot;in&quot;,&quot;image_offset&quot;:0.5,&quot;min_gap&quot;:0.001,&quot;projection&quot;:&quot;cylindrical&quot;,&quot;inkscape_layers&quot;:true}</text>
+    <path d="M48,1115.21 L48,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <path d="M48,1115.21 L48,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="48" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">0in</text>
+    <path d="M144,1115.21 L144,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="144" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">1in</text>
+    <path d="M240,1115.21 L240,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="240" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">2in</text>
+    <path d="M336,1115.21 L336,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="336" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">3in</text>
+    <path d="M432,1115.21 L432,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="432" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">4in</text>
+    <path d="M528,1115.21 L528,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="528" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">5in</text>
+    <path d="M624,1115.21 L624,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="624" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">6in</text>
+    <path d="M720,1115.21 L720,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="720" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">7in</text>
+    <path d="M816,1115.21 L816,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="816" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">8in</text>
+    <path d="M912,1115.21 L912,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="912" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">9in</text>
+    <path d="M1008,1115.21 L1008,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1008" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">10in</text>
+    <path d="M1104,1115.21 L1104,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1104" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">11in</text>
+    <path d="M1200,1115.21 L1200,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1200" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">12in</text>
+    <path d="M1296,1115.21 L1296,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1296" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">13in</text>
+    <path d="M1392,1115.21 L1392,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1392" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">14in</text>
+    <path d="M1488,1115.21 L1488,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1488" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">15in</text>
+    <path d="M1584,1115.21 L1584,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1584" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">16in</text>
+    <path d="M1680,1115.21 L1680,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1680" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">17in</text>
+    <path d="M1776,1115.21 L1776,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1776" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">18in</text>
+    <path d="M1872,1115.21 L1872,1086.41" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="1872" y="1100.81" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">19in</text>
+  </g>
+</svg>

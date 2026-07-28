@@ -101,6 +101,89 @@ pub fn rim_uv(param: &SurfaceParam, flat: &FlatGeometry, cutout: &Cutout) -> Vec
     rim(param, flat, cutout, home)
 }
 
+/// Insert a vertex wherever an edge crosses a grid cell boundary.
+///
+/// The map from `(u, v)` to the page is affine *within* a cell and bends at
+/// every boundary. An edge carried by its two endpoints alone is therefore
+/// mapped as a straight chord across something that bends, and the material
+/// between chord and curve survives the subtraction.
+///
+/// **This has to run after clipping, not before.** The edge that matters most
+/// is the one clipping *creates*: a shape crossing a seam gets a new side along
+/// `u = k/N`, running from wherever the outline entered the strip to wherever it
+/// left, with nothing in between. On this pattern that side is a chord across a
+/// seam which bows out by 0.6 in where the panels join, so a shape drawn over a
+/// seam left a strip of panel down the middle of it that wide.
+///
+/// A hole's rim never showed the effect: sixty-four segments are short enough
+/// that it disappears. A hand-drawn shape has a handful of long ones.
+///
+/// Once every edge lies inside one cell the piecewise-affine map reproduces it
+/// exactly, so this is a correction and not an approximation that could be
+/// refined further.
+fn densify(param: &SurfaceParam, outline: &[DVec2]) -> Vec<DVec2> {
+    if outline.len() < 2 {
+        return outline.to_vec();
+    }
+
+    // `v` of each theta row boundary. Not evenly spaced — `v` is arc length.
+    let rows: Vec<f64> = (0..=param.theta_divisions)
+        .map(|it| param.coord(0, it, 0.0, 0.0).1)
+        .collect();
+    let strips = param.phi_divisions as f64;
+
+    let mut out = Vec::with_capacity(outline.len() * 4);
+    for i in 0..outline.len() {
+        let a = outline[i];
+        let b = outline[(i + 1) % outline.len()];
+        out.push(a);
+
+        let mut cuts: Vec<f64> = Vec::new();
+        let mut crossings = |from: f64, to: f64, boundaries: &dyn Fn(&mut Vec<f64>)| {
+            if (to - from).abs() > f64::EPSILON {
+                boundaries(&mut cuts);
+            }
+        };
+
+        // Strip boundaries. The range is taken from the edge itself so a shape
+        // sitting off either end of the phi range is still handled.
+        crossings(a.x, b.x, &|cuts: &mut Vec<f64>| {
+            let (lo, hi) = if a.x < b.x { (a.x, b.x) } else { (b.x, a.x) };
+            let first = (lo * strips).floor() as i64;
+            let last = (hi * strips).ceil() as i64;
+            // An edge spanning more than a couple of turns is degenerate — a
+            // rim fit that diverged, most likely. Subdividing it boundary by
+            // boundary would be a very long loop to no purpose, so leave it
+            // alone and let the clip discard it.
+            if last.saturating_sub(first) > 4 * strips as i64 {
+                return;
+            }
+            for k in first..=last {
+                cuts.push((k as f64 / strips - a.x) / (b.x - a.x));
+            }
+        });
+        // Theta row boundaries.
+        crossings(a.y, b.y, &|cuts: &mut Vec<f64>| {
+            for row in &rows {
+                cuts.push((row - a.y) / (b.y - a.y));
+            }
+        });
+
+        cuts.retain(|t| *t > 1e-12 && *t < 1.0 - 1e-12);
+        cuts.sort_by(f64::total_cmp);
+        cuts.dedup_by(|x, y| (*x - *y).abs() < 1e-12);
+        for t in cuts {
+            out.push(a + (b - a) * t);
+        }
+    }
+    out
+}
+
+/// Area enclosed by a closed ring, unsigned.
+pub fn area(points: &[DVec2]) -> f64 {
+    signed_area(points).abs() / 2.0
+}
+
 /// Twice the signed area. Positive means counter-clockwise.
 fn signed_area(points: &[DVec2]) -> f64 {
     let mut sum = 0.0;
@@ -304,6 +387,9 @@ pub fn pieces(
         if clipped.len() < 3 {
             continue;
         }
+        // Now, with the cut edges in place — see [`densify`].
+        let clipped = densify(param, &clipped);
+
         // Each piece is placed with *its own* strip pinned. Deriving the strip
         // from `u` instead would put points sitting exactly on the cut edge —
         // every clip intersection — on the neighbouring panel, and at the phi
@@ -317,6 +403,73 @@ pub fn pieces(
     }
 
     out
+}
+
+/// Whether `p` is inside the closed ring `polygon`.
+///
+/// Ray casting, so it handles the concave outlines a drawn shape can have.
+fn contains(polygon: &[DVec2], p: DVec2) -> bool {
+    let mut inside = false;
+    for i in 0..polygon.len() {
+        let a = polygon[i];
+        let b = polygon[(i + 1) % polygon.len()];
+        if (a.y > p.y) != (b.y > p.y) {
+            let x = a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x);
+            if x > p.x {
+                inside = !inside;
+            }
+        }
+    }
+    inside
+}
+
+fn cross(a: DVec2, b: DVec2) -> f64 {
+    a.x * b.y - a.y * b.x
+}
+
+/// Where `a -> b` crosses `c -> d`, as a fraction along `a -> b`.
+fn segment_crossing(a: DVec2, b: DVec2, c: DVec2, d: DVec2) -> Option<f64> {
+    let (r, s) = (b - a, d - c);
+    let denom = cross(r, s);
+    if denom.abs() < 1e-12 {
+        return None;
+    }
+    let t = cross(c - a, s) / denom;
+    let u = cross(c - a, r) / denom;
+    ((0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u)).then_some(t)
+}
+
+/// The parts of segment `a -> b` that lie outside every one of `pieces`.
+///
+/// Guide lines are fold and glue marks. Running one across a hole marks
+/// material that is not there, and on a cutter that draws its guides it is a
+/// stray line through the middle of the cutout — so the segments are split at
+/// every crossing and only the parts still on panel are kept.
+pub fn outside_pieces(a: DVec2, b: DVec2, pieces: &[Vec<DVec2>]) -> Vec<[DVec2; 2]> {
+    if pieces.is_empty() {
+        return vec![[a, b]];
+    }
+
+    let mut cuts = vec![0.0, 1.0];
+    for piece in pieces {
+        for i in 0..piece.len() {
+            let (c, d) = (piece[i], piece[(i + 1) % piece.len()]);
+            if let Some(t) = segment_crossing(a, b, c, d) {
+                cuts.push(t);
+            }
+        }
+    }
+    cuts.sort_by(f64::total_cmp);
+    cuts.dedup_by(|x, y| (*x - *y).abs() < 1e-9);
+
+    let at = |t: f64| a + (b - a) * t;
+    cuts.windows(2)
+        .filter(|w| {
+            let mid = at((w[0] + w[1]) / 2.0);
+            !pieces.iter().any(|p| contains(p, mid))
+        })
+        .map(|w| [at(w[0]), at(w[1])])
+        .collect()
 }
 
 #[cfg(test)]
@@ -699,51 +852,98 @@ mod seam_tests {
             );
         }
     }
-
-    /// A shape spanning a seam the outline has *merged* should be one hole.
+    /// Everything inside a drawn shape is removed, seams and all.
     ///
-    /// **Known failure — see `RUST_CONVERSION_PLAN.md` Appendix O.** `min_gap`
-    /// decides whether two panels are drawn as one piece. Where they are, there
-    /// is no cut edge between them, so a shape crossing that seam has nothing
-    /// to be divided by; splitting it anyway leaves a sliver of material a hair
-    /// wide across the middle of the hole. [`pieces`] always divides at the
-    /// strip boundary and knows nothing of `min_gap`, so it splits regardless.
-    ///
-    /// The second half of the test is what makes this hard to fix casually:
-    /// where the panels really are further apart than `min_gap`, the seam *is*
-    /// a cut edge and two holes is the right answer. Widening the pieces enough
-    /// to fuse the first case makes them reach the panel edge in the second,
-    /// turning two correct holes into notches.
+    /// The shape reported as leaving material behind: it crosses a seam, spans
+    /// the joined band and both petal regions either side of it, and reaches
+    /// the bottom edge. The clipped side along the seam used to be carried as a
+    /// single chord, so a 0.6 in strip of panel survived down the middle of it.
     #[test]
-    #[ignore = "known defect: pieces are split at every seam, merged or not"]
-    fn merging_follows_min_gap() {
+    fn a_shape_drawn_across_a_seam_leaves_nothing_inside_it() {
+        let input = EllipsoidInput {
+            h_middle: 2.0,
+            ..Default::default()
+        };
         let shape = Cutout::polygon(vec![
-            [0.68, 0.36],
-            [0.82, 0.36],
-            [0.86, 0.50],
-            [0.75, 0.58],
-            [0.64, 0.50],
+            [0.407, 0.548],
+            [0.442, 0.620],
+            [0.463, 0.654],
+            [0.533, 0.769],
+            [0.537, 0.603],
+            [0.564, 0.506],
+            [0.537, 0.263],
+            [0.535, 0.002],
+            [0.409, 0.002],
         ]);
 
-        let merged = EllipsoidInput {
-            min_gap: 0.005,
-            ..base()
+        let geometry = compute_geometry(&input);
+        let flat = compute_flat_geometry(&geometry, &input);
+        let param = SurfaceParam::new(&geometry);
+        let transform = PatternTransform::new(&input, &flat);
+        let placed: Vec<Vec<DVec2>> = pieces(&param, &geometry, &flat, &shape)
+            .into_iter()
+            .map(|p| p.into_iter().map(|q| transform.place_outline(q)).collect())
+            .collect();
+
+        let scene = crate::layout::draw_edges(&input, &flat);
+        let outline = match scene
+            .layer(crate::layout::LAYER_PATTERN)
+            .and_then(|l| l.items.first())
+        {
+            Some(crate::Item::Path { points, .. }) => points.clone(),
+            _ => panic!("no cut outline"),
         };
-        assert_eq!(
-            rings(&merged, std::slice::from_ref(&shape)),
-            1,
-            "the panels are drawn as one piece, so the hole must be one ring"
+
+        let (outer, holes) = subtract_from_outline(&outline, &placed);
+        assert!(
+            holes.is_empty(),
+            "the shape reaches the edge, so it notches"
         );
 
-        // The default. The panels are 0.0013 in apart at these rows — wider
-        // than `min_gap`, so the outline draws the seam and the shape is
-        // genuinely divided between two panels.
-        let separate = base();
-        assert_eq!(separate.min_gap, 0.001);
-        assert_eq!(
-            rings(&separate, std::slice::from_ref(&shape)),
-            2,
-            "the panels are cut apart, so each must carry its own hole"
+        // Cutting all the way through leaves the pattern in two pieces. A third
+        // is the leftover strip; the two tiny triangles where the panels part
+        // are dropped later, by the area filter in `draw_cutouts`.
+        let substantial = outer
+            .iter()
+            .filter(|r| area(r) > transform.stroke_width().powi(2))
+            .count();
+        assert_eq!(substantial, 2, "expected the pattern to be cut in two");
+
+        // And what went is what was asked for, to within the sliver of shape
+        // that lies below the bottom edge and so was never there to remove.
+        let removed = area(&outline) - outer.iter().map(|r| area(r)).sum::<f64>();
+        let asked = placed.iter().map(|p| area(p)).sum::<f64>();
+        assert!(
+            (removed - asked).abs() < asked * 0.02,
+            "removed {removed:.0} of {asked:.0} asked"
         );
+    }
+
+    /// Guide lines are fold marks, so they stop at a hole rather than crossing
+    /// it — there is no material there to fold.
+    #[test]
+    fn guide_lines_do_not_cross_a_cutout() {
+        let a = DVec2::new(0.0, 5.0);
+        let b = DVec2::new(10.0, 5.0);
+        let hole = vec![
+            DVec2::new(4.0, 4.0),
+            DVec2::new(6.0, 4.0),
+            DVec2::new(6.0, 6.0),
+            DVec2::new(4.0, 6.0),
+        ];
+
+        let parts = outside_pieces(a, b, std::slice::from_ref(&hole));
+        assert_eq!(parts.len(), 2, "the segment should be cut in two");
+        assert!((parts[0][1].x - 4.0).abs() < 1e-9, "{:?}", parts[0]);
+        assert!((parts[1][0].x - 6.0).abs() < 1e-9, "{:?}", parts[1]);
+
+        // Swallowed whole, so nothing is left of it.
+        let inside = DVec2::new(4.5, 5.0);
+        let also_inside = DVec2::new(5.5, 5.0);
+        assert!(outside_pieces(inside, also_inside, std::slice::from_ref(&hole)).is_empty());
+
+        // Clear of it, so it is untouched.
+        let clear = outside_pieces(DVec2::new(0.0, 1.0), DVec2::new(10.0, 1.0), &[hole]);
+        assert_eq!(clear.len(), 1);
     }
 }

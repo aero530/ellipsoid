@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.0.dtd" width="533.137" height="1010.163" viewBox="0 0 533.137 1010.163">
+  <g id="Ellipsoid Pattern" inkscape:groupmode="layer" inkscape:label="Ellipsoid Pattern">
+    <path d="M48,601.796 L92.069,769.075 L92.069,961.075 L450.151,961.075 L450.151,769.075 L485.137,770.163 L485.137,962.163 L485.137,962.163 L485.137,770.163 L450.151,769.075 L450.151,961.075 L92.069,961.075 L92.069,769.075 L48,601.796 L48,601.796 L48,409.796 L49.487,378.014 L127.576,190.961 L287.428,69.429 L295.057,69.429 L421.963,190.961 L483.956,378.014 L485.137,378.007 L485.137,187.913 L485.137,48 L485.137,48 L485.137,187.913 L485.137,378.007 L483.956,378.014 L421.963,190.961 L295.057,69.429 L287.428,69.429 L127.576,190.961 L49.487,378.014 L48,409.796 Z" fill="rgb(255,255,255)" fill-opacity="0.3" stroke="rgb(0,0,0)" stroke-width="1.6"/>
+  </g>
+  <g id="Bounding Box" inkscape:groupmode="layer" inkscape:label="Bounding Box">
+    <rect x="0" y="0" width="533.137" height="1010.163" fill="rgb(255,0,128)" fill-opacity="0" stroke="rgb(51,51,51)" stroke-width="0.96"/>
+  </g>
+  <g id="Guide Lines" inkscape:groupmode="layer" inkscape:label="Guide Lines">
+    <g>
+      <path d="M92.069,769.075 L450.151,769.075" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M48,601.796 L485.137,601.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M48,409.796 L485.137,409.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M49.487,378.014 L483.956,378.014" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M127.576,190.961 L421.963,190.961" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M287.428,69.429 L295.057,69.429" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M485.137,770.163 L485.137,770.163" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M485.137,601.796 L485.137,601.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M485.137,409.796 L485.137,409.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M485.137,378.007 L485.137,378.007" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M485.137,187.913 L485.137,187.913" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M485.137,48 L485.137,48" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M450.151,769.075 L92.069,769.075" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M485.137,601.796 L48,601.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M485.137,409.796 L48,409.796" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M483.956,378.014 L49.487,378.014" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M421.963,190.961 L127.576,190.961" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+      <path d="M295.057,69.429 L287.428,69.429" fill="none" stroke="rgb(0,255,0)" stroke-width="0.8"/>
+    </g>
+  </g>
+  <g id="Notes" inkscape:groupmode="layer" inkscape:label="Notes">
+    <text x="14.4" y="729.363" font-family="Roboto" font-size="24" fill="rgb(0,0,0)" text-anchor="middle" dominant-baseline="central" transform="rotate(-90,14.4,729.363)">ellipsoid_a3.75in_b2.88in_c3.00in.svg</text>
+    <text x="9.6" y="14.4" font-family="Courier New" font-size="3.07" fill="rgb(0,0,0)">{&quot;a&quot;:3.75,&quot;b&quot;:2.875,&quot;c&quot;:3.0,&quot;h_top&quot;:0.0,&quot;h_middle&quot;:2.0,&quot;h_bottom&quot;:2.0,&quot;h_top_fraction&quot;:1.0,&quot;h_top_shift&quot;:0.0,&quot;phi_divisions&quot;:3,&quot;theta_divisions&quot;:3,&quot;theta_min&quot;:-35.0,&quot;theta_max&quot;:90.0,&quot;unit&quot;:&quot;in&quot;,&quot;image_offset&quot;:0.5,&quot;min_gap&quot;:0.001,&quot;projection&quot;:&quot;cylindrical&quot;,&quot;inkscape_layers&quot;:true}</text>
+    <path d="M48,1010.163 L48,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <path d="M48,1010.163 L48,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="48" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">0in</text>
+    <path d="M144,1010.163 L144,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="144" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">1in</text>
+    <path d="M240,1010.163 L240,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="240" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">2in</text>
+    <path d="M336,1010.163 L336,981.363" fill="none" stroke="rgb(179,77,128)" stroke-width="0.96"/>
+    <text x="336" y="995.763" font-family="Roboto" font-size="19.2" fill="rgb(0,0,0)">3in</text>
+  </g>
+</svg>

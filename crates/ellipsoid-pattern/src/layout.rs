@@ -435,6 +435,15 @@ pub fn draw_cutouts(
 
     let stroke_width = transform.stroke_width();
 
+    // Guide lines are fold and glue marks, so they have no business crossing a
+    // hole: there is no material there to fold. Trim before touching the
+    // outline, while `pieces` is still the only borrow in play.
+    if let Some(guides) = scene.layer_mut(LAYER_GUIDE_LINES) {
+        for item in &mut guides.items {
+            trim_guides(item, &pieces);
+        }
+    }
+
     // Take the cut outline out of the pattern layer, keeping its styling.
     let Some(pattern) = scene.layer_mut(LAYER_PATTERN) else {
         return;
@@ -450,6 +459,19 @@ pub fn draw_cutouts(
     };
 
     let (outer, holes) = crate::cutouts::subtract_from_outline(&outline, &pieces);
+
+    // Drop anything smaller than the line that would draw it.
+    //
+    // Where two panels part company along a seam, subtracting a shape that
+    // crosses it leaves a triangle a few thousandths of an inch across. It is
+    // real geometry, not a rounding error, but it is well under any cutter's
+    // kerf and shows up only as a stray tick on the drawing.
+    let worth_cutting =
+        |ring: &Vec<DVec2>| crate::cutouts::area(ring) > stroke_width * stroke_width;
+    let kept: Vec<Vec<DVec2>> = outer.iter().filter(|r| worth_cutting(r)).cloned().collect();
+    // ...unless that would throw the pattern away.
+    let outer = if kept.is_empty() { outer } else { kept };
+    let holes: Vec<Vec<DVec2>> = holes.into_iter().filter(worth_cutting).collect();
 
     pattern.items.clear();
     for ring in outer {
@@ -477,6 +499,52 @@ pub fn draw_cutouts(
         });
     }
     scene.layers.push(layer);
+}
+
+/// Replace every guide segment with the parts of it that miss the cutouts.
+///
+/// Guides arrive wrapped in a `Group`, as the original had them, so this
+/// recurses. A segment swallowed whole simply disappears.
+fn trim_guides(item: &mut Item, pieces: &[Vec<DVec2>]) {
+    match item {
+        Item::Group(children) => {
+            let trimmed: Vec<Item> = children
+                .drain(..)
+                .flat_map(|mut child| {
+                    trim_guides(&mut child, pieces);
+                    match child {
+                        // A segment that split into several is spliced back in.
+                        Item::Group(parts) => parts,
+                        other => vec![other],
+                    }
+                })
+                .collect();
+            *children = trimmed;
+        }
+        Item::Path { points, stroke, .. } if points.len() == 2 => {
+            let parts = crate::cutouts::outside_pieces(points[0], points[1], pieces);
+            let stroke = *stroke;
+            // One surviving part in place; none or several via a group, which
+            // the arm above flattens on the way out.
+            match parts.len() {
+                1 => *points = parts[0].to_vec(),
+                _ => {
+                    *item = Item::Group(
+                        parts
+                            .into_iter()
+                            .map(|p| Item::Path {
+                                points: p.to_vec(),
+                                closed: false,
+                                stroke,
+                                fill: None,
+                            })
+                            .collect(),
+                    )
+                }
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Add the notes layer: a filename label, the settings used, and a ruler.

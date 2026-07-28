@@ -12,18 +12,21 @@
 //!
 //! ```text
 //! git show js-final:app/utils/ellipsoid.js
-//! git checkout js-final -- app/utils    # to regenerate the golden files
 //! ```
 //!
-//! The `golden/` files are the part that still matters day to day: they are
-//! the JavaScript's *answers*, checked in, and `tests/parity.rs` holds this
-//! crate to them at a `1e-9` relative tolerance. That tolerance is why all the
-//! math here is `f64` ([`glam::DVec3`]) — `f32` cannot reach it. Conversion to
-//! `f32` happens only where meshes are handed to the renderer.
+//! The port was validated against it function by function, at a `1e-9` relative
+//! tolerance. That tolerance is why all the math here is `f64`
+//! ([`glam::DVec3`]) — `f32` cannot reach it. Conversion to `f32` happens only
+//! where meshes are handed to the renderer.
 //!
-//! The port is deliberately bug-for-bug faithful — see `RUST_CONVERSION_PLAN.md`
-//! §8 for the list of known defects carried over on purpose, the most
-//! consequential being the `theta_max` mix-up in [`flatten`].
+//! That parity harness has since been retired: its job was done, and the
+//! `theta_max` fix means the two implementations now deliberately disagree.
+//! `golden/` holds snapshots of *this* crate's output across the same matrix,
+//! and `tests/invariants.rs` checks the properties the numbers must have
+//! regardless of what any reference produced.
+//!
+//! The port was otherwise deliberately bug-for-bug faithful — see
+//! `RUST_CONVERSION_PLAN.md` §8 for the defects carried over on purpose.
 
 pub mod flatten;
 pub mod geometry;
