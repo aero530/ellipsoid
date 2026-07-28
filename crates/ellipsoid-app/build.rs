@@ -31,7 +31,10 @@ fn main() {
         resource.set_icon(icon.to_str().expect("repository path is UTF-8"));
         // FileVersion and ProductVersion come from CARGO_PKG_VERSION already.
         resource.set("ProductName", "Ellipsoid Pattern Generator");
-        resource.set("FileDescription", "Generate cut patterns for ellipsoid shapes");
+        resource.set(
+            "FileDescription",
+            "Generate cut patterns for ellipsoid shapes",
+        );
         // Matches `Manufacturer` in wix/main.wxs, so the Properties dialog and
         // the installer's Programs-and-Features entry agree.
         resource.set("CompanyName", "P. Spindler");

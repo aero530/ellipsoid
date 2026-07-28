@@ -1510,3 +1510,63 @@ The column came out 1.5× too wide and stayed there, and the printed value looke
 - Views fill the height at any window size, and keep filling it as the window is resized.
 - The splitter still works; dragging it changes the views' aspect, not whether they fit.
 - Below `MIN_VIEW` (96 points each) the column scrolls instead of shrinking further — checked at a 480-pixel-tall window, where the second view is reachable by scrolling and nothing overlaps.
+
+## Appendix X — The Windows installer had never been built
+
+Phase 8 configured cargo-dist, hand-edited a WiX definition, added a CI guard for those edits, and generated a release workflow. What it never did was *run* the thing. Building it locally took two attempts to get a WiX toolchain in place and then found two defects, either of which would have failed the first real release.
+
+### It needed a WiX toolchain first
+
+`candle`/`light` are WiX v3 and not installed here. `dist build --artifacts=local --target x86_64-pc-windows-msvc` compiled the app fine and produced the `.zip`, then stopped at the MSI. Two false starts of my own: `WIX` must point at the *parent* of a `bin` directory, and copying only `.exe`/`.dll` out of the binaries zip left out `darice.cub`, which light needs for validation (LGHT0222). Neither was a project problem.
+
+For the record, WiX 3.14.1 ships on the `windows-2022` and `windows-2025` runner images, so CI has what this machine lacked.
+
+### Defect 1 — the product icon's path could never resolve
+
+```
+main.wxs(207) : error LGHT0103 : The system cannot find the file 'wix\Product.ico'.
+```
+
+`SourceFile` resolves against **light's working directory**, not the `.wxs`. The stock cargo-wix template's commented-out example says `wix\Product.ico` and gets away with it because `cargo wix` runs from the package directory; dist runs from the workspace root, where that path does not exist. Fixed with `$(sys.SOURCEFILEDIR)Product.ico` — the directory of the source file, trailing separator included.
+
+### Defect 2 — the Start Menu shortcut failed validation
+
+With the icon resolving, light got as far as ICE validation and stopped:
+
+```
+ICE43: Component binary0 has non-advertised shortcuts. It should use a registry
+       key under HKCU as its KeyPath, not a file.
+ICE57: Component 'binary0' has both per-user and per-machine data with a
+       per-machine KeyPath.
+```
+
+The shortcut had been nested inside the binary's `File`, which reads naturally and is not allowed: a Start Menu entry is per-user data, the executable is per-machine, and one component cannot hold both. Moved to its own component keyed on an `HKCU` registry value, pointing at the binary with `Target='[!exe0]'`, with a matching `ComponentRef` in the feature.
+
+### Two more things the build showed
+
+**The executable had no PE resources at all** — no icon, no version information. Explorer, the taskbar and Alt-Tab showed the generic executable icon; the Properties dialog was blank. Only the Start Menu shortcut looked right, which is exactly why this survived Phase 8: the one place anybody checks was the one place with its own icon. A `build.rs` using `winresource` now embeds `resources/icon.ico` and the version stamp for Windows targets only, keyed off `CARGO_CFG_TARGET_OS` rather than `cfg!(windows)` so cross-compiling and wasm are unaffected.
+
+**The installer called itself `ellipsoid-app`** in Add/Remove Programs and in its own title bar, because that is the crate name and what dist's template puts in `Product/@Name`. Now "Ellipsoid Pattern Generator".
+
+### Verified, not assumed
+
+| | |
+| --- | --- |
+| `dist plan` | 8 Windows artifacts, msi + zip + checksums for both binaries |
+| `dist build --artifacts=local` | exit 0; app msi 23.6 MB, cli msi 0.83 MB |
+| MSI identity | name, version 2.0.0, manufacturer, upgrade code matching `Cargo.toml`, `ARPPRODUCTICON`, help link, `ALLUSERS=1` |
+| MSI shortcut | `'Ellipsoid Pattern Generator'` in `ProgramMenuFolder`, `icon=ProductICO`, description present |
+| `msiexec /a` | lays out `PFiles\ellipsoid-app\bin\ellipsoid-app.exe` — read-only check, nothing registered |
+| shipped binary | `ProductName`, `FileVersion 2.0.0`, `CompanyName`, description all present |
+
+### The guard that would have caught it
+
+The existing `msi-customisation` step greps for the hand-edited lines. Both defects above kept every one of those greps passing, and `dist plan` passing too — only candle and light had an opinion. So CI gained an `msi` job that builds both installers from their WiX source against a **stub executable**: no cargo, no release build, a few seconds, and it fails on exactly these errors. Checked by reverting the icon path and watching it fail with LGHT0103.
+
+The greps are still worth keeping — they name what was customised and why — and now also cover the shortcut's component, its `ComponentRef` and the product name.
+
+### Still open
+
+- **Nothing is code-signed.** Windows will show a SmartScreen warning on first run of an unsigned installer, and macOS will refuse the app until it is unquarantined. Both need certificates, so both are decisions rather than work.
+- **GitHub Pages must be enabled** in the repository settings (source: GitHub Actions) before `pages.yml` can deploy the web demo.
+- The install directory is still `Program Files\ellipsoid-app\bin`. Renaming it to the product name is free *before* the first release and awkward after, since it would orphan existing installs.
