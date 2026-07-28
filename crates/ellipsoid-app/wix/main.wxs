@@ -78,9 +78,12 @@
 
 <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
 
+    <!-- HAND-EDITED, `Name` below: dist's template puts the crate name there,
+         and that is then what Add/Remove Programs and the installer's own title
+         bar show. What people installed is "Ellipsoid Pattern Generator". -->
     <Product
         Id='*'
-        Name='ellipsoid-app'
+        Name='Ellipsoid Pattern Generator'
         UpgradeCode='CAC6D4C6-A1B1-4BE7-B39A-5DC6023DC669'
         Manufacturer='P. Spindler'
         Language='1033'
