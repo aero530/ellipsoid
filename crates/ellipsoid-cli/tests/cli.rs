@@ -10,10 +10,15 @@
 //! ```text
 //! UPDATE_SNAPSHOTS=1 cargo test -p ellipsoid-cli
 //! ```
+//!
+//! The SVG is compared byte for byte — it is written at fixed precision, so it
+//! is stable everywhere. OBJ is compared as parsed numbers; see
+//! [`assert_obj_snapshot`].
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+use ellipsoid_core::obj::parse_obj;
 use ellipsoid_core::{EllipsoidInput, compute_flat_geometry, compute_geometry, geometry_to_obj};
 use ellipsoid_pattern::{SvgOptions, build_scene, to_svg};
 
@@ -51,21 +56,29 @@ fn snapshot_dir() -> PathBuf {
         .join("snapshots")
 }
 
-fn assert_snapshot(name: &str, actual: &str) {
+/// The stored snapshot, or `None` when regenerating — in which case `actual`
+/// has just been written in its place and there is nothing to compare against.
+fn stored_snapshot(name: &str, actual: &str) -> Option<String> {
     let path = snapshot_dir().join(name);
 
     if std::env::var_os("UPDATE_SNAPSHOTS").is_some() {
         std::fs::create_dir_all(snapshot_dir()).expect("create snapshot dir");
         std::fs::write(&path, actual).unwrap_or_else(|e| panic!("writing {path:?}: {e}"));
-        return;
+        return None;
     }
 
-    let expected = std::fs::read_to_string(&path).unwrap_or_else(|e| {
+    Some(std::fs::read_to_string(&path).unwrap_or_else(|e| {
         panic!(
             "missing snapshot {path:?} ({e}).\n\
              Create it with: UPDATE_SNAPSHOTS=1 cargo test -p ellipsoid-cli"
         )
-    });
+    }))
+}
+
+fn assert_snapshot(name: &str, actual: &str) {
+    let Some(expected) = stored_snapshot(name, actual) else {
+        return;
+    };
 
     let (expected, actual) = (normalize(&expected), normalize(actual));
     if expected != actual {
@@ -87,6 +100,68 @@ fn assert_snapshot(name: &str, actual: &str) {
                 actual.lines().count()
             ),
         };
+        panic!(
+            "snapshot {name} does not match; {detail}\n\
+             If this change is intended: UPDATE_SNAPSHOTS=1 cargo test -p ellipsoid-cli"
+        );
+    }
+}
+
+/// A snapshot is this implementation's own output, so it should agree to the
+/// bit — but OBJ vertices are written at full `f64` precision, and the last
+/// place or two of a flattened one depends on the platform's libm. One set of
+/// snapshots is checked against both Linux and Windows in CI, so a byte
+/// comparison cannot pass on both at once. Same reasoning, and same tolerance,
+/// as the golden harness in `ellipsoid-core/tests/snapshots.rs`.
+const OBJ_TOL: f64 = 1e-12;
+
+fn close(a: f64, b: f64) -> bool {
+    let scale = a.abs().max(b.abs()).max(1.0);
+    (a - b).abs() <= OBJ_TOL * scale
+}
+
+/// Compare an OBJ snapshot as parsed numbers: face topology and vertex count
+/// exactly, coordinates to [`OBJ_TOL`].
+///
+/// This is what `ellipsoid-core`'s golden files do, and what the note in
+/// `obj.rs` means by "tests compare parsed numbers, never text".
+fn assert_obj_snapshot(name: &str, actual: &str) {
+    let Some(expected) = stored_snapshot(name, actual) else {
+        return;
+    };
+
+    let (want_vertices, want_faces) = parse_obj(&expected);
+    let (got_vertices, got_faces) = parse_obj(actual);
+
+    // Point at the first difference rather than dumping both meshes.
+    let detail = if got_faces != want_faces {
+        Some("face topology differs".to_string())
+    } else if got_vertices.len() != want_vertices.len() {
+        Some(format!(
+            "vertex count: expected {}, got {}",
+            want_vertices.len(),
+            got_vertices.len()
+        ))
+    } else {
+        got_vertices
+            .iter()
+            .zip(&want_vertices)
+            .enumerate()
+            .find_map(|(i, (got, want))| {
+                (0..3)
+                    .find(|&axis| !close(got[axis], want[axis]))
+                    .map(|axis| {
+                        format!(
+                            "vertex {} axis {axis}:\n  expected: {}\n  actual:   {}",
+                            i + 1,
+                            want[axis],
+                            got[axis]
+                        )
+                    })
+            })
+    };
+
+    if let Some(detail) = detail {
         panic!(
             "snapshot {name} does not match; {detail}\n\
              If this change is intended: UPDATE_SNAPSHOTS=1 cargo test -p ellipsoid-cli"
@@ -160,14 +235,14 @@ fn svg_snapshot() {
 fn obj_snapshot() {
     let mut args = SMALL.to_vec();
     args.extend_from_slice(&["--format", "obj"]);
-    assert_snapshot("small.obj", &stdout_of(&args));
+    assert_obj_snapshot("small.obj", &stdout_of(&args));
 }
 
 #[test]
 fn obj_flat_snapshot() {
     let mut args = SMALL.to_vec();
     args.extend_from_slice(&["--format", "obj-flat"]);
-    assert_snapshot("small-flat.obj", &stdout_of(&args));
+    assert_obj_snapshot("small-flat.obj", &stdout_of(&args));
 }
 
 // ---------------------------------------------------------------------------

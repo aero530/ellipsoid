@@ -14,6 +14,11 @@ path-guid = "80ADA7C1-B427-4247-8FA9-AE745DF71171"
 license = false
 eula = false
 
+# Only used on Windows, and only to put the icon and the version stamp into the
+# .exe — see build.rs. Not needed to build or run the app.
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
 [dependencies]
 ellipsoid-core.workspace = true
 ellipsoid-pattern.workspace = true

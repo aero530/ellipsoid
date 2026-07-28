@@ -106,8 +106,41 @@
         <Property Id='DiskPrompt' Value='ellipsoid-app Installation'/>
 
         <Directory Id='TARGETDIR' Name='SourceDir'>
-            <!-- HAND-EDITED: declared so the shortcut below has somewhere to go. -->
-            <Directory Id='ProgramMenuFolder'/>
+            <!-- HAND-EDITED, see the note at the top of this file.
+
+                 The Start Menu shortcut, in a component of its own with a
+                 registry value under HKCU as its KeyPath. That shape is not
+                 decoration: a non-advertised shortcut sitting in the binary's
+                 component, keyed on the .exe, fails WiX validation outright —
+
+                   ICE43: Component binary0 has non-advertised shortcuts. It
+                          should use a registry key under HKCU as its KeyPath.
+                   ICE57: Component 'binary0' has both per-user and per-machine
+                          data with a per-machine KeyPath.
+
+                 A Start Menu entry is per-user data and the binary is
+                 per-machine, so they cannot share a component. `[!exe0]`
+                 resolves to the installed path of the `exe0` File above. -->
+            <Directory Id='ProgramMenuFolder'>
+                <Component Id='StartMenuShortcut'
+                           Guid='AA27A02C-A5AA-4FE6-ABA8-576DB75C5285'>
+                    <Shortcut
+                        Id='StartMenuShortcut'
+                        Name='Ellipsoid Pattern Generator'
+                        Description='Generate cut patterns for ellipsoid shapes'
+                        Target='[!exe0]'
+                        WorkingDirectory='Bin'
+                        Icon='ProductICO'
+                        Advertise='no'/>
+                    <RegistryValue
+                        Root='HKCU'
+                        Key='Software\P. Spindler\Ellipsoid Pattern Generator'
+                        Name='StartMenuShortcut'
+                        Type='integer'
+                        Value='1'
+                        KeyPath='yes'/>
+                </Component>
+            </Directory>
             <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
                 <Directory Id='APPLICATIONFOLDER' Name='ellipsoid-app'>
                     
@@ -148,18 +181,7 @@
                                 Name='ellipsoid-app.exe'
                                 DiskId='1'
                                 Source='$(var.CargoTargetBinDir)\ellipsoid-app.exe'
-                                KeyPath='yes'>
-                                <!-- HAND-EDITED, see the note at the top of this file.
-                                     A GUI app reachable only by typing its name in a
-                                     terminal is not installed in any useful sense. -->
-                                <Shortcut
-                                    Id='StartMenuShortcut'
-                                    Directory='ProgramMenuFolder'
-                                    Name='Ellipsoid Pattern Generator'
-                                    Description='Generate cut patterns for ellipsoid shapes'
-                                    Icon='ProductICO'
-                                    Advertise='no'/>
-                            </File>
+                                KeyPath='yes'/>
                         </Component>
                     </Directory>
                 </Directory>
@@ -183,6 +205,9 @@
             <!--<ComponentRef Id='License'/>-->
 
             <ComponentRef Id='binary0'/>
+            <!-- HAND-EDITED: without this the shortcut's component is orphaned
+                 and light fails with LGHT0094. -->
+            <ComponentRef Id='StartMenuShortcut'/>
 
             <Feature
                 Id='Environment'
@@ -203,8 +228,16 @@
           The product icon is the graphic that appears in the Add/Remove
           Programs control panel for the application.
         -->
-        <!-- HAND-EDITED, see the note at the top of this file. -->
-        <Icon Id='ProductICO' SourceFile='wix\Product.ico'/>
+        <!-- HAND-EDITED, see the note at the top of this file.
+
+             `$(sys.SOURCEFILEDIR)` — the directory of this .wxs, with its
+             trailing separator — and not a bare `wix\Product.ico`. A relative
+             SourceFile resolves against light's working directory, which for a
+             workspace is the repository root, not the package. The stock
+             template's commented-out example gets away with `wix\Product.ico`
+             because `cargo wix` runs from the package; dist does not, and the
+             link step failed with LGHT0103 for every build. -->
+        <Icon Id='ProductICO' SourceFile='$(sys.SOURCEFILEDIR)Product.ico'/>
         <Property Id='ARPPRODUCTICON' Value='ProductICO' />
 
         <Property Id='ARPHELPLINK' Value='https://github.com/aero530/ellipsoid'/>
